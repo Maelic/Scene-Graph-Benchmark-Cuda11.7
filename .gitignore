@@ -13,7 +13,7 @@ dist/
 **/.ipynb_checkpoints/
 
 # checkpoint
-checkpoint/
+checkpoints/
 
 # dataset
 datasets/vg/
