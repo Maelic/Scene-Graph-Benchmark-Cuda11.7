@@ -6,6 +6,7 @@ _ext
 maskrcnn_benchmark.egg-info/
 build/
 dist/
+*.h5
 
 # ipython/jupyter notebooks
 #*.ipynb
