@@ -41,7 +41,7 @@ MODEL:
     POOLER_SAMPLING_RATIO: 2
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
-    NUM_CLASSES: 151                    # 151 for VG, 1201 for GQA
+    NUM_CLASSES: 224                    # 151 for VG, 1201 for GQA
     MLP_HEAD_DIM: 4096
   ROI_ATTRIBUTE_HEAD:
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
