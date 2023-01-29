@@ -14,9 +14,10 @@ dist/
 
 # checkpoint
 checkpoints/
+logs/
 
 # dataset
-datasets/vg/
+datasets/
 *.png
 *.jpg
 *.jpeg
