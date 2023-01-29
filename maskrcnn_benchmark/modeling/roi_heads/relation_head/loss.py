@@ -19,11 +19,11 @@ class RelationLossComputation(object):
 
     def __init__(
         self,
-        attri_on,
-        num_attri_cat,
-        max_num_attri,
-        attribute_sampling,
-        attribute_bgfg_ratio,
+        # attri_on,
+        # num_attri_cat,
+        # max_num_attri,
+        # attribute_sampling,
+        # attribute_bgfg_ratio,
         use_label_smoothing,
         predicate_proportion,
     ):
@@ -32,11 +32,11 @@ class RelationLossComputation(object):
             bbox_proposal_matcher (Matcher)
             rel_fg_bg_sampler (RelationPositiveNegativeSampler)
         """
-        self.attri_on = attri_on
-        self.num_attri_cat = num_attri_cat
-        self.max_num_attri = max_num_attri
-        self.attribute_sampling = attribute_sampling
-        self.attribute_bgfg_ratio = attribute_bgfg_ratio
+        # self.attri_on = attri_on
+        # self.num_attri_cat = num_attri_cat
+        # self.max_num_attri = max_num_attri
+        # self.attribute_sampling = attribute_sampling
+        # self.attribute_bgfg_ratio = attribute_bgfg_ratio
         self.use_label_smoothing = use_label_smoothing
         self.pred_weight = (1.0 / torch.FloatTensor([0.5,] + predicate_proportion)).cuda()
 
@@ -59,15 +59,15 @@ class RelationLossComputation(object):
             predicate_loss (Tensor)
             finetune_obj_loss (Tensor)
         """
-        if self.attri_on:
-            if isinstance(refine_logits[0], (list, tuple)):
-                refine_obj_logits, refine_att_logits = refine_logits
-            else:
-                # just use attribute feature, do not actually predict attribute
-                self.attri_on = False
-                refine_obj_logits = refine_logits
-        else:
-            refine_obj_logits = refine_logits
+        # # if self.attri_on:
+        # #     if isinstance(refine_logits[0], (list, tuple)):
+        # #         refine_obj_logits, refine_att_logits = refine_logits
+        # #     else:
+        # #         # just use attribute feature, do not actually predict attribute
+        # #         self.attri_on = False
+        # #         refine_obj_logits = refine_logits
+        # else:
+        refine_obj_logits = refine_logits
 
         relation_logits = cat(relation_logits, dim=0)
         refine_obj_logits = cat(refine_obj_logits, dim=0)
@@ -79,25 +79,25 @@ class RelationLossComputation(object):
         loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
 
         # The following code is used to calcaulate sampled attribute loss
-        if self.attri_on:
-            refine_att_logits = cat(refine_att_logits, dim=0)
-            fg_attributes = cat([proposal.get_field("attributes") for proposal in proposals], dim=0)
+        # if self.attri_on:
+        #     refine_att_logits = cat(refine_att_logits, dim=0)
+        #     fg_attributes = cat([proposal.get_field("attributes") for proposal in proposals], dim=0)
 
-            attribute_targets, fg_attri_idx = self.generate_attributes_target(fg_attributes)
-            if float(fg_attri_idx.sum()) > 0:
-                # have at least one bbox got fg attributes
-                refine_att_logits = refine_att_logits[fg_attri_idx > 0]
-                attribute_targets = attribute_targets[fg_attri_idx > 0]
-            else:
-                refine_att_logits = refine_att_logits[0].view(1, -1)
-                attribute_targets = attribute_targets[0].view(1, -1)
+        #     attribute_targets, fg_attri_idx = self.generate_attributes_target(fg_attributes)
+        #     if float(fg_attri_idx.sum()) > 0:
+        #         # have at least one bbox got fg attributes
+        #         refine_att_logits = refine_att_logits[fg_attri_idx > 0]
+        #         attribute_targets = attribute_targets[fg_attri_idx > 0]
+        #     else:
+        #         refine_att_logits = refine_att_logits[0].view(1, -1)
+        #         attribute_targets = attribute_targets[0].view(1, -1)
 
-            loss_refine_att = self.attribute_loss(refine_att_logits, attribute_targets, 
-                                             fg_bg_sample=self.attribute_sampling, 
-                                             bg_fg_ratio=self.attribute_bgfg_ratio)
-            return loss_relation, (loss_refine_obj, loss_refine_att)
-        else:
-            return loss_relation, loss_refine_obj
+        #     loss_refine_att = self.attribute_loss(refine_att_logits, attribute_targets, 
+        #                                      fg_bg_sample=self.attribute_sampling, 
+        #                                      bg_fg_ratio=self.attribute_bgfg_ratio)
+        #     return loss_relation, (loss_refine_obj, loss_refine_att)
+        # else:
+        return loss_relation, loss_refine_obj
 
     def generate_attributes_target(self, attributes):
         """
@@ -165,11 +165,11 @@ class FocalLoss(nn.Module):
 def make_roi_relation_loss_evaluator(cfg):
 
     loss_evaluator = RelationLossComputation(
-        cfg.MODEL.ATTRIBUTE_ON,
-        cfg.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES,
-        cfg.MODEL.ROI_ATTRIBUTE_HEAD.MAX_ATTRIBUTES,
-        cfg.MODEL.ROI_ATTRIBUTE_HEAD.ATTRIBUTE_BGFG_SAMPLE,
-        cfg.MODEL.ROI_ATTRIBUTE_HEAD.ATTRIBUTE_BGFG_RATIO,
+        # cfg.MODEL.ATTRIBUTE_ON,
+        # cfg.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES,
+        # cfg.MODEL.ROI_ATTRIBUTE_HEAD.MAX_ATTRIBUTES,
+        # cfg.MODEL.ROI_ATTRIBUTE_HEAD.ATTRIBUTE_BGFG_SAMPLE,
+        # cfg.MODEL.ROI_ATTRIBUTE_HEAD.ATTRIBUTE_BGFG_RATIO,
         cfg.MODEL.ROI_RELATION_HEAD.LABEL_SMOOTHING_LOSS,
         cfg.MODEL.ROI_RELATION_HEAD.REL_PROP,
     )

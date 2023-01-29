@@ -29,8 +29,7 @@ from maskrcnn_benchmark.utils.comm import synchronize, get_rank, all_gather
 from maskrcnn_benchmark.utils.imports import import_file
 from maskrcnn_benchmark.utils.logger import setup_logger, debug_print
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
-from maskrcnn_benchmark.utils.metric_logger import MetricLogger
-
+from maskrcnn_benchmark.utils.metric_logger import (MetricLogger, TensorboardLogger)
 
 # See if we can use apex.DistributedDataParallel instead of the torch default,
 # and enable mixed-precision via apex.amp
@@ -39,8 +38,7 @@ try:
 except ImportError:
     raise ImportError('Use APEX for multi-precision via apex.amp')
 
-
-def train(cfg, local_rank, distributed, logger):
+def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
     debug_print(logger, 'prepare training')
     model = build_detection_model(cfg) 
     debug_print(logger, 'end model construction')
@@ -62,9 +60,9 @@ def train(cfg, local_rank, distributed, logger):
     load_mapping = {"roi_heads.relation.box_feature_extractor" : "roi_heads.box.feature_extractor",
                     "roi_heads.relation.union_feature_extractor.feature_extractor" : "roi_heads.box.feature_extractor"}
     
-    if cfg.MODEL.ATTRIBUTE_ON:
-        load_mapping["roi_heads.relation.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
-        load_mapping["roi_heads.relation.union_feature_extractor.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
+    # if cfg.MODEL.ATTRIBUTE_ON:
+    #     load_mapping["roi_heads.relation.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
+    #     load_mapping["roi_heads.relation.union_feature_extractor.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
 
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
@@ -119,12 +117,21 @@ def train(cfg, local_rank, distributed, logger):
     debug_print(logger, 'end dataloader')
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD
 
+
+
     if cfg.SOLVER.PRE_VAL:
         logger.info("Validate before training")
         run_val(cfg, model, val_data_loaders, distributed, logger)
 
+    if use_tensorboard:
+        meters = TensorboardLogger(
+            log_dir=cfg.TENSORBOARD_EXPERIMENT,
+            start_iter=arguments['iteration'],
+            delimiter="  ")
+    else:
+        meters = MetricLogger(delimiter="  ")
+
     logger.info("Start training")
-    meters = MetricLogger(delimiter="  ")
     max_iter = len(train_data_loader)
     start_iter = arguments["iteration"]
     start_training_time = time.time()
@@ -134,6 +141,7 @@ def train(cfg, local_rank, distributed, logger):
     for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
         if any(len(target) < 1 for target in targets):
             logger.error(f"Iteration={iteration + 1} || Image Ids used for training {_} || targets Length={[len(target) for target in targets]}" )
+            continue
         data_time = time.time() - end
         iteration = iteration + 1
         arguments["iteration"] = iteration
@@ -239,8 +247,8 @@ def run_val(cfg, model, val_data_loaders, distributed, logger):
         iou_types = iou_types + ("keypoints",)
     if cfg.MODEL.RELATION_ON:
         iou_types = iou_types + ("relations", )
-    if cfg.MODEL.ATTRIBUTE_ON:
-        iou_types = iou_types + ("attributes", )
+    # if cfg.MODEL.ATTRIBUTE_ON:
+    #     iou_types = iou_types + ("attributes", )
 
     dataset_names = cfg.DATASETS.VAL
     val_result = []
@@ -281,8 +289,8 @@ def run_test(cfg, model, distributed, logger):
         iou_types = iou_types + ("keypoints",)
     if cfg.MODEL.RELATION_ON:
         iou_types = iou_types + ("relations", )
-    if cfg.MODEL.ATTRIBUTE_ON:
-        iou_types = iou_types + ("attributes", )
+    # if cfg.MODEL.ATTRIBUTE_ON:
+    #     iou_types = iou_types + ("attributes", )
     output_folders = [None] * len(cfg.DATASETS.TEST)
     dataset_names = cfg.DATASETS.TEST
     if cfg.OUTPUT_DIR:
@@ -323,6 +331,13 @@ def main():
         dest="skip_test",
         help="Do not test the final model",
         action="store_true",
+    )
+    parser.add_argument(
+        "--use-tensorboard",
+        dest="use_tensorboard",
+        help="Use tensorboardX logger (Requires tensorboardX installed)",
+        action="store_true",
+        default=False
     )
     parser.add_argument(
         "opts",
@@ -369,7 +384,13 @@ def main():
     # save overloaded model config in the output directory
     save_config(cfg, output_config_path)
 
-    model = train(cfg, args.local_rank, args.distributed, logger)
+    model = train(
+        cfg=cfg,
+        local_rank=args.local_rank,
+        distributed=args.distributed,
+        logger=logger,
+        use_tensorboard=args.use_tensorboard
+    )
 
     if not args.skip_test:
         run_test(cfg, model, args.distributed, logger)

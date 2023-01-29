@@ -98,6 +98,7 @@ def train(cfg, local_rank, distributed, logger):
         
         if any(len(target) < 1 for target in targets):
             logger.error(f"Iteration={iteration + 1} || Image Ids used for training {_} || targets Length={[len(target) for target in targets]}" )
+            continue
         data_time = time.time() - end
         iteration = iteration + 1
         arguments["iteration"] = iteration
@@ -180,8 +181,8 @@ def run_val(cfg, model, val_data_loaders, distributed):
         iou_types = iou_types + ("keypoints",)
     if cfg.MODEL.RELATION_ON:
         iou_types = iou_types + ("relations", )
-    if cfg.MODEL.ATTRIBUTE_ON:
-        iou_types = iou_types + ("attributes", )
+    # if cfg.MODEL.ATTRIBUTE_ON:
+    #     iou_types = iou_types + ("attributes", )
         
     dataset_names = cfg.DATASETS.VAL
     for dataset_name, val_data_loader in zip(dataset_names, val_data_loaders):
@@ -211,8 +212,8 @@ def run_test(cfg, model, distributed):
         iou_types = iou_types + ("keypoints",)
     if cfg.MODEL.RELATION_ON:
         iou_types = iou_types + ("relations", )
-    if cfg.MODEL.ATTRIBUTE_ON:
-        iou_types = iou_types + ("attributes", )
+    # if cfg.MODEL.ATTRIBUTE_ON:
+    #     iou_types = iou_types + ("attributes", )
     output_folders = [None] * len(cfg.DATASETS.TEST)
     dataset_names = cfg.DATASETS.TEST
     if cfg.OUTPUT_DIR:

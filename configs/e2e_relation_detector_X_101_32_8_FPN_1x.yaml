@@ -41,7 +41,7 @@ MODEL:
     POOLER_SAMPLING_RATIO: 2
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
-    NUM_CLASSES: 224                    # 151 for VG, 1201 for GQA
+    NUM_CLASSES: 151                    # 151 for VG, 1201 for GQA
     MLP_HEAD_DIM: 4096
   ROI_ATTRIBUTE_HEAD:
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
@@ -49,8 +49,8 @@ MODEL:
     USE_BINARY_LOSS: True               # choose binary, because cross_entropy loss deteriorate the box head, even with 0.1 weight
     POS_WEIGHT: 50.0
     ATTRIBUTE_LOSS_WEIGHT: 1.0
-    NUM_ATTRIBUTES: 201                 # 201 for VG, 501 for GQA
-    MAX_ATTRIBUTES: 10             
+    # NUM_ATTRIBUTES: 201                 # 201 for VG, 501 for GQA
+    # MAX_ATTRIBUTES: 10             
     ATTRIBUTE_BGFG_SAMPLE: True    
     ATTRIBUTE_BGFG_RATIO: 3        
 DATASETS:

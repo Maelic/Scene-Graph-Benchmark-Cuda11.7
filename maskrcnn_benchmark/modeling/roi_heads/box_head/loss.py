@@ -30,12 +30,12 @@ class FastRCNNLossComputation(object):
             matched_targets = target[matched_idxs.clamp(min=0)]
             
             labels_per_image = matched_targets.get_field("labels").to(dtype=torch.int64)
-            attris_per_image = matched_targets.get_field("attributes").to(dtype=torch.int64)
+            #attris_per_image = matched_targets.get_field("attributes").to(dtype=torch.int64)
 
             labels_per_image[matched_idxs < 0] = 0
-            attris_per_image[matched_idxs < 0, :] = 0
+            #attris_per_image[matched_idxs < 0, :] = 0
             proposals[img_idx].add_field("labels", labels_per_image)
-            proposals[img_idx].add_field("attributes", attris_per_image)
+            #proposals[img_idx].add_field("attributes", attris_per_image)
         return proposals
 
 

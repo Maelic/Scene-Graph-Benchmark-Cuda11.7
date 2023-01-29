@@ -3,7 +3,7 @@ import torch
 from torch import nn
 
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
-from ..attribute_head.roi_attribute_feature_extractors import make_roi_attribute_feature_extractor
+#from ..attribute_head.roi_attribute_feature_extractors import make_roi_attribute_feature_extractor
 from ..box_head.roi_box_feature_extractors import make_roi_box_feature_extractor
 from .roi_relation_feature_extractors import make_roi_relation_feature_extractor
 from .roi_relation_predictors import make_roi_relation_predictor
@@ -23,13 +23,13 @@ class ROIRelationHead(torch.nn.Module):
         # these param will be trained in a slow learning rate, while the parameters of box head will be fixed
         # Note: there is another such extractor in uniton_feature_extractor
         self.union_feature_extractor = make_roi_relation_feature_extractor(cfg, in_channels)
-        if cfg.MODEL.ATTRIBUTE_ON:
-            self.box_feature_extractor = make_roi_box_feature_extractor(cfg, in_channels, half_out=True)
-            self.att_feature_extractor = make_roi_attribute_feature_extractor(cfg, in_channels, half_out=True)
-            feat_dim = self.box_feature_extractor.out_channels * 2
-        else:
-            self.box_feature_extractor = make_roi_box_feature_extractor(cfg, in_channels)
-            feat_dim = self.box_feature_extractor.out_channels
+        # if cfg.MODEL.ATTRIBUTE_ON:
+        #     self.box_feature_extractor = make_roi_box_feature_extractor(cfg, in_channels, half_out=True)
+        #     self.att_feature_extractor = make_roi_attribute_feature_extractor(cfg, in_channels, half_out=True)
+        #     feat_dim = self.box_feature_extractor.out_channels * 2
+        # else:
+        self.box_feature_extractor = make_roi_box_feature_extractor(cfg, in_channels)
+        feat_dim = self.box_feature_extractor.out_channels
         self.predictor = make_roi_relation_predictor(cfg, feat_dim)
         self.post_processor = make_roi_relation_post_processor(cfg)
         self.loss_evaluator = make_roi_relation_loss_evaluator(cfg)
@@ -66,9 +66,9 @@ class ROIRelationHead(torch.nn.Module):
         # use box_head to extract features that will be fed to the later predictor processing
         roi_features = self.box_feature_extractor(features, proposals)
 
-        if self.cfg.MODEL.ATTRIBUTE_ON:
-            att_features = self.att_feature_extractor(features, proposals)
-            roi_features = torch.cat((roi_features, att_features), dim=-1)
+        # if self.cfg.MODEL.ATTRIBUTE_ON:
+        #     att_features = self.att_feature_extractor(features, proposals)
+        #     roi_features = torch.cat((roi_features, att_features), dim=-1)
 
         if self.use_union_box:
             union_features = self.union_feature_extractor(features, proposals, rel_pair_idxs)
@@ -86,10 +86,10 @@ class ROIRelationHead(torch.nn.Module):
 
         loss_relation, loss_refine = self.loss_evaluator(proposals, rel_labels, relation_logits, refine_logits)
 
-        if self.cfg.MODEL.ATTRIBUTE_ON and isinstance(loss_refine, (list, tuple)):
-            output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine[0], loss_refine_att=loss_refine[1])
-        else:
-            output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine)
+        # if self.cfg.MODEL.ATTRIBUTE_ON and isinstance(loss_refine, (list, tuple)):
+        #     output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine[0], loss_refine_att=loss_refine[1])
+        # else:
+        output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine)
 
         output_losses.update(add_losses)
 
