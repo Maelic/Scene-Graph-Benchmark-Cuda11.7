@@ -15,6 +15,7 @@ dist/
 # checkpoint
 checkpoints/
 logs/
+wandb/
 
 # dataset
 datasets/
