@@ -15,6 +15,10 @@ import datetime
 import torch
 from torch.nn.utils import clip_grad_norm_
 
+import wandb
+
+wandb.init(project="scene-graph-benchmark", entity="maelic")
+
 from maskrcnn_benchmark.config import cfg
 from maskrcnn_benchmark.data import make_data_loader
 from maskrcnn_benchmark.solver import make_lr_scheduler
@@ -159,7 +163,9 @@ def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = reduce_loss_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+
         meters.update(loss=losses_reduced, **loss_dict_reduced)
+        wandb.log({"loss": losses_reduced})
 
         optimizer.zero_grad()
         # Note: If mixed precision is not used, this ends up doing nothing
