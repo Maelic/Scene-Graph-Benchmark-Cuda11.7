@@ -17,13 +17,6 @@ from maskrcnn_benchmark.utils.comm import synchronize, get_rank
 from maskrcnn_benchmark.utils.logger import setup_logger
 from maskrcnn_benchmark.utils.miscellaneous import mkdir
 
-# Check if we can enable mixed-precision via apex.amp
-try:
-    from apex import amp
-except ImportError:
-    raise ImportError('Use APEX for mixed precision via apex.amp')
-
-
 def main():
     parser = argparse.ArgumentParser(description="PyTorch Object Detection Inference")
     parser.add_argument(
@@ -38,6 +31,13 @@ def main():
         help="Modify config options using the command-line",
         default=None,
         nargs=argparse.REMAINDER,
+    )
+
+    parser.add_argument(
+        "--amp",
+        help="Mixed precision training",
+        default=False,
+        action="store_true",
     )
 
     args = parser.parse_args()
@@ -68,8 +68,7 @@ def main():
     model.to(cfg.MODEL.DEVICE)
 
     # Initialize mixed-precision if necessary
-    use_mixed_precision = cfg.DTYPE == 'float16'
-    amp_handle = amp.init(enabled=use_mixed_precision, verbose=cfg.AMP_VERBOSE)
+    use_amp = True if cfg.DTYPE == "float16" or args.amp else False
 
     output_dir = cfg.OUTPUT_DIR
     checkpointer = DetectronCheckpointer(cfg, model, save_dir=output_dir)
@@ -104,20 +103,21 @@ def main():
             output_folders[idx] = output_folder
     data_loaders_val = make_data_loader(cfg=cfg, mode="test", is_distributed=distributed, dataset_to_test=cfg.DATASETS.TO_TEST)
     for output_folder, dataset_name, data_loader_val in zip(output_folders, dataset_names, data_loaders_val):
-        inference(
-            cfg,
-            model,
-            data_loader_val,
-            dataset_name=dataset_name,
-            iou_types=iou_types,
-            box_only=False if cfg.MODEL.RETINANET_ON else cfg.MODEL.RPN_ONLY,
-            device=cfg.MODEL.DEVICE,
-            expected_results=cfg.TEST.EXPECTED_RESULTS,
-            expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
-            output_folder=output_folder,
-        )
+        # Note: If mixed precision is not used, this ends up doing nothing
+        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
+            inference(
+                cfg,
+                model,
+                data_loader_val,
+                dataset_name=dataset_name,
+                iou_types=iou_types,
+                box_only=False if cfg.MODEL.RETINANET_ON else cfg.MODEL.RPN_ONLY,
+                device=cfg.MODEL.DEVICE,
+                expected_results=cfg.TEST.EXPECTED_RESULTS,
+                expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
+                output_folder=output_folder,
+            )
         synchronize()
-
 
 if __name__ == "__main__":
     main()

@@ -36,20 +36,9 @@ from maskrcnn_benchmark.utils.logger import setup_logger, debug_print
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
 from maskrcnn_benchmark.utils.metric_logger import MetricLogger
 
-# See if we can use apex.DistributedDataParallel instead of the torch default,
-# and enable mixed-precision via apex.amp
-try:
-    from apex import amp
-except ImportError:
-    raise ImportError('Use APEX for multi-precision via apex.amp')
-
 sg_model_name = 'motif'
 sg_fusion_name = 'rubi'
 sg_type_name = 'origin'
-
-#sg_train_path = '/data1/image_retrieval/causal_{}_sgdet_{}_{}_train.pytorch'.format(sg_model_name, sg_fusion_name, sg_type_name)
-#sg_test_path = '/data1/image_retrieval/causal_{}_sgdet_{}_{}_test.pytorch'.format(sg_model_name, sg_fusion_name, sg_type_name)
-#output_path = '/data1/image_retrieval_model/causal_'+sg_model_name+'_sgdet_'+sg_fusion_name+'_'+sg_type_name+'_output_%s_%d.pytorch'
 
 #Make results reproducibles
 torch.manual_seed(0)
@@ -92,10 +81,10 @@ def train(cfg, local_rank, distributed, logger):
     optimizer = make_optimizer(cfg, model, logger, rl_factor=float(num_batch))
     scheduler = make_lr_scheduler(cfg, optimizer, logger)
     debug_print(logger, 'end optimizer and shcedule')
+
     # Initialize mixed-precision training
-    use_mixed_precision = cfg.DTYPE == "float16"
-    amp_opt_level = 'O1' if use_mixed_precision else 'O0'
-    model, optimizer = amp.initialize(model, optimizer, opt_level=amp_opt_level)
+    use_amp = True if cfg.DTYPE == "float16" else False
+    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(
@@ -177,23 +166,26 @@ def train(cfg, local_rank, distributed, logger):
             bad_sample_list.clear()
 
             if len(fg_imgs) > 0:
-                loss_list = model(fg_imgs, fg_txts, bg_imgs, bg_txts)
-
+                # Note: If mixed precision is not used, this ends up doing nothing
+                with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
+                    loss_list = model(fg_imgs, fg_txts, bg_imgs, bg_txts)
+                    
                 losses = sum(loss_list) / (len(loss_list) + 1e-9)
                 epoch_loss.append(float(losses))
-                #print("batch loss; ", float(losses))
-                optimizer.zero_grad()
+                
                 # Note: If mixed precision is not used, this ends up doing nothing
                 # Otherwise apply loss scaling for mixed-precision recipe
-                with amp.scale_loss(losses, optimizer) as scaled_losses:
-                    scaled_losses.backward()
+                scaler.scale(losses).backward()
+                scaler.step(optimizer)
+                scaler.update()
+
+                optimizer.zero_grad()
 
                 # add clip_grad_norm from MOTIFS, used for debug
                 verbose = (iteration % cfg.SOLVER.PRINT_GRAD_FREQ) == 0 or print_first_grad # print grad or not
                 print_first_grad = False
                 clip_grad_norm([(n, p) for n, p in model.named_parameters() if p.requires_grad], max_norm=cfg.SOLVER.GRAD_NORM_CLIP, logger=logger, verbose=verbose, clip=True)
 
-                optimizer.step()
                 # scheduler should be called after optimizer.step() in pytorch>=1.1.0
                 assert cfg.SOLVER.SCHEDULE.TYPE != "WarmupReduceLROnPlateau"
                 scheduler.step()
