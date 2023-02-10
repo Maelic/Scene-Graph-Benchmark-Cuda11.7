@@ -22,7 +22,7 @@ from maskrcnn_benchmark.engine.inference import inference
 from maskrcnn_benchmark.modeling.detector import build_detection_model
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
-from maskrcnn_benchmark.utils.comm import synchronize, get_rank, is_main_process
+from maskrcnn_benchmark.utils.comm import synchronize, get_rank, all_gather
 from maskrcnn_benchmark.utils.imports import import_file
 from maskrcnn_benchmark.utils.logger import setup_logger
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
@@ -88,6 +88,8 @@ def train(cfg, local_rank, distributed, logger):
     start_training_time = time.time()
     end = time.time()
 
+    val_result = 0
+
     for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
 
         model.train()
@@ -116,8 +118,6 @@ def train(cfg, local_rank, distributed, logger):
         loss_dict_reduced = reduce_loss_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
         meters.update(loss=losses_reduced, **loss_dict_reduced)
-
-        wandb.log({"loss": losses_reduced})
 
         optimizer.zero_grad()
 
@@ -152,13 +152,16 @@ def train(cfg, local_rank, distributed, logger):
 
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
             logger.info("Start validating")
-            res = run_val(cfg, model, val_data_loaders, distributed)
-            wandb.log({"mAp", res})
+            val_result = run_val(cfg, model, val_data_loaders, distributed)
+            wandb.log({"mAp": val_result})
 
         if iteration % checkpoint_period == 0:
             checkpointer.save("model_{:07d}".format(iteration), **arguments)
         if iteration == max_iter:
             checkpointer.save("model_final", **arguments)
+
+        wandb.log({"loss": losses_reduced})
+
 
     total_training_time = time.time() - start_training_time
     total_time_str = str(datetime.timedelta(seconds=total_training_time))
@@ -195,10 +198,14 @@ def run_val(cfg, model, val_data_loaders, distributed):
         synchronize()
         results.append(dataset_result)
 
-    if is_main_process(): 
-        map_results, raw_results = results[0]
-        bbox_map = map_results.results["bbox"]['AP']
-    return bbox_map
+    gathered_result = all_gather(torch.tensor(dataset_result).cpu())
+    gathered_result = [t.view(-1) for t in gathered_result]
+    gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
+    valid_result = gathered_result[gathered_result>=0]
+    val_result = float(valid_result.mean())
+    del gathered_result, valid_result
+    torch.cuda.empty_cache()
+    return val_result
 
 def run_test(cfg, model, distributed):
     if distributed:

@@ -142,17 +142,11 @@ def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
         targets = [target.to(device) for target in targets]
 
         # Note: If mixed precision is not used, this ends up doing nothing
+        #use_amp = False
         with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
             loss_dict = model(images, targets)
 
         losses = sum(loss for loss in loss_dict.values())
-
-        # Scaling loss
-        scaler.scale(losses).backward()
-        scaler.step(optimizer)
-        scaler.update()
-
-        optimizer.zero_grad()
 
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = reduce_loss_dict(loss_dict)
@@ -161,10 +155,18 @@ def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
         meters.update(loss=losses_reduced, **loss_dict_reduced)
         wandb.log({"loss": losses_reduced})
 
+        # Scaling loss
+        scaler.scale(losses).backward()
+
         # add clip_grad_norm from MOTIFS, tracking gradient, used for debug
         verbose = (iteration % cfg.SOLVER.PRINT_GRAD_FREQ) == 0 or print_first_grad # print grad or not
         print_first_grad = False
         clip_grad_norm([(n, p) for n, p in model.named_parameters() if p.requires_grad], max_norm=cfg.SOLVER.GRAD_NORM_CLIP, logger=logger, verbose=verbose, clip=True)
+
+        scaler.step(optimizer)
+        scaler.update()
+
+        optimizer.zero_grad()
 
         batch_time = time.time() - end
         end = time.time()
@@ -259,6 +261,7 @@ def run_val(cfg, model, val_data_loaders, distributed, logger):
                             logger=logger,
                         )
         synchronize()
+
         val_result.append(dataset_result)
     # support for multi gpu distributed testing
     gathered_result = all_gather(torch.tensor(dataset_result).cpu())
