@@ -18,7 +18,7 @@ class PostProcessor(nn.Module):
 
     def __init__(
         self,
-        attribute_on,
+        #attribute_on,
         use_gt_box=False,
         later_nms_pred_thres=0.3,
     ):
@@ -27,7 +27,7 @@ class PostProcessor(nn.Module):
 
         """
         super(PostProcessor, self).__init__()
-        self.attribute_on = attribute_on
+        #self.attribute_on = attribute_on
         self.use_gt_box = use_gt_box
         self.later_nms_pred_thres = later_nms_pred_thres
 
@@ -47,23 +47,23 @@ class PostProcessor(nn.Module):
         """
         relation_logits, refine_logits = x
         
-        if self.attribute_on:
-            if isinstance(refine_logits[0], (list, tuple)):
-                finetune_obj_logits, finetune_att_logits = refine_logits
-            else:
-                # just use attribute feature, do not actually predict attribute
-                self.attribute_on = False
-                finetune_obj_logits = refine_logits
-        else:
-            finetune_obj_logits = refine_logits
+        # if self.attribute_on:
+        #     if isinstance(refine_logits[0], (list, tuple)):
+        #         finetune_obj_logits, finetune_att_logits = refine_logits
+        #     else:
+        #         # just use attribute feature, do not actually predict attribute
+        #         self.attribute_on = False
+        #         finetune_obj_logits = refine_logits
+        # else:
+        finetune_obj_logits = refine_logits
 
         results = []
         for i, (rel_logit, obj_logit, rel_pair_idx, box) in enumerate(zip(
             relation_logits, finetune_obj_logits, rel_pair_idxs, boxes
         )):
-            if self.attribute_on:
-                att_logit = finetune_att_logits[i]
-                att_prob = torch.sigmoid(att_logit)
+            # if self.attribute_on:
+            #     att_logit = finetune_att_logits[i]
+            #     att_prob = torch.sigmoid(att_logit)
             obj_class_prob = F.softmax(obj_logit, -1)
             obj_class_prob[:, 0] = 0  # set background score to 0
             num_obj_bbox = obj_class_prob.shape[0]
@@ -93,8 +93,8 @@ class PostProcessor(nn.Module):
             boxlist.add_field('pred_labels', obj_class) # (#obj, )
             boxlist.add_field('pred_scores', obj_scores) # (#obj, )
 
-            if self.attribute_on:
-                boxlist.add_field('pred_attributes', att_prob)
+            # if self.attribute_on:
+            #     boxlist.add_field('pred_attributes', att_prob)
             
             # sorting triples according to score production
             obj_scores0 = obj_scores[rel_pair_idx[:, 0]]
@@ -122,12 +122,12 @@ class PostProcessor(nn.Module):
 
 
 def make_roi_relation_post_processor(cfg):
-    attribute_on = cfg.MODEL.ATTRIBUTE_ON
+    #attribute_on = cfg.MODEL.ATTRIBUTE_ON
     use_gt_box = cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX
     later_nms_pred_thres = cfg.TEST.RELATION.LATER_NMS_PREDICTION_THRES
 
     postprocessor = PostProcessor(
-        attribute_on,
+        #attribute_on,
         use_gt_box,
         later_nms_pred_thres,
     )

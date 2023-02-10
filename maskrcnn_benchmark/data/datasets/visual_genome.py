@@ -49,19 +49,18 @@ class VGDataset(torch.utils.data.Dataset):
         self.filter_duplicate_rels = filter_duplicate_rels and self.split == 'train'
         self.transforms = transforms
 
-        self.ind_to_classes, self.ind_to_predicates, self.ind_to_attributes = load_info(dict_file) # contiguous 151, 51 containing __background__
+        self.ind_to_classes, self.ind_to_predicates = load_info(dict_file) # , self.ind_to_attributes
         self.categories = {i : self.ind_to_classes[i] for i in range(len(self.ind_to_classes))}
 
         self.custom_eval = custom_eval
         if self.custom_eval:
             self.get_custom_imgs(custom_path)
         else:
-            self.split_mask, self.gt_boxes, self.gt_classes, self.gt_attributes, self.relationships = load_graphs(
+            self.split_mask, self.gt_boxes, self.gt_classes, self.relationships = load_graphs( # self.gt_attributes,
                 self.roidb_file, self.split, num_im, num_val_im=num_val_im,
                 filter_empty_rels=filter_empty_rels,
                 filter_non_overlap=self.filter_non_overlap,
             )
-
             self.filenames, self.img_info = load_image_filenames(img_dir, image_file) # length equals to split_mask
             self.filenames = [self.filenames[i] for i in np.where(self.split_mask)[0]]
             self.img_info = [self.img_info[i] for i in np.where(self.split_mask)[0]]
@@ -108,7 +107,7 @@ class VGDataset(torch.utils.data.Dataset):
             'pred_dist': torch.from_numpy(pred_dist).float(),
             'obj_classes': self.ind_to_classes,
             'rel_classes': self.ind_to_predicates,
-            'att_classes': self.ind_to_attributes,
+            #'att_classes': self.ind_to_attributes,
         }
         return result
 
@@ -150,7 +149,7 @@ class VGDataset(torch.utils.data.Dataset):
         target = BoxList(box, (w, h), 'xyxy') # xyxy
 
         target.add_field("labels", torch.from_numpy(self.gt_classes[index]))
-        target.add_field("attributes", torch.from_numpy(self.gt_attributes[index]))
+        #target.add_field("attributes", torch.from_numpy(self.gt_attributes[index]))
 
         relation = self.relationships[index].copy() # (num_rel, 3)
         if self.filter_duplicate_rels:
@@ -277,16 +276,16 @@ def load_info(dict_file, add_bg=True):
     if add_bg:
         info['label_to_idx']['__background__'] = 0
         info['predicate_to_idx']['__background__'] = 0
-        info['attribute_to_idx']['__background__'] = 0
+        #info['attribute_to_idx']['__background__'] = 0
 
     class_to_ind = info['label_to_idx']
     predicate_to_ind = info['predicate_to_idx']
-    attribute_to_ind = info['attribute_to_idx']
+    #attribute_to_ind = info['attribute_to_idx']
     ind_to_classes = sorted(class_to_ind, key=lambda k: class_to_ind[k])
     ind_to_predicates = sorted(predicate_to_ind, key=lambda k: predicate_to_ind[k])
-    ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
+    #ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
 
-    return ind_to_classes, ind_to_predicates, ind_to_attributes
+    return ind_to_classes, ind_to_predicates #, ind_to_attributes
 
 
 def load_image_filenames(img_dir, image_file):
@@ -314,8 +313,8 @@ def load_image_filenames(img_dir, image_file):
         if os.path.exists(filename):
             fns.append(filename)
             img_info.append(img)
-    assert len(fns) == 108073
-    assert len(img_info) == 108073
+    assert len(fns) == len(img_info)
+    # assert len(img_info) == 108073
     return fns, img_info
 
 
@@ -338,31 +337,46 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
                     (box_ind_1, box_ind_2, predicate) relationships
     """
     roi_h5 = h5py.File(roidb_file, 'r')
-    data_split = roi_h5['split'][:]
-    split_flag = 2 if split == 'test' else 0
-    split_mask = data_split == split_flag
 
     # Filter out images without bounding boxes
-    split_mask &= roi_h5['img_to_first_box'][:] >= 0
     if filter_empty_rels:
+        data_split = roi_h5['split_rel'][:]
+        if split =='test':
+            split_flag = 2
+        elif split == 'val':
+            split_flag = 1
+        else:
+            split_flag = 0
+        split_mask = data_split == split_flag
         split_mask &= roi_h5['img_to_first_rel'][:] >= 0
+    else:
+        data_split = roi_h5['split'][:]
+        if split =='test':
+            split_flag = 2
+        elif split == 'val':
+            split_flag = 1
+        else:
+            split_flag = 0
+        split_mask = data_split == split_flag
+        split_mask &= roi_h5['img_to_first_box'][:] >= 0
 
     image_index = np.where(split_mask)[0]
-    if num_im > -1:
-        image_index = image_index[:num_im]
-    if num_val_im > 0:
-        if split == 'val':
-            image_index = image_index[:num_val_im]
-        elif split == 'train':
-            image_index = image_index[num_val_im:]
-
+    # else:
+    #     image_index = np.where(split_mask)[0]
+    #     if num_im > -1:
+    #         image_index = image_index[:num_im]
+    #     if num_val_im > 0:
+    #         if split == 'val':
+    #             image_index = image_index[:num_val_im]
+    #         elif split == 'train':
+    #             image_index = image_index[num_val_im:]
 
     split_mask = np.zeros_like(data_split).astype(bool)
     split_mask[image_index] = True
 
     # Get box information
     all_labels = roi_h5['labels'][:, 0]
-    all_attributes = roi_h5['attributes'][:, :]
+    #all_attributes = roi_h5['attributes'][:, :]
     all_boxes = roi_h5['boxes_{}'.format(BOX_SCALE)][:]  # cx,cy,w,h
     assert np.all(all_boxes[:, :2] >= 0)  # sanity check
     assert np.all(all_boxes[:, 2:] > 0)  # no empty box
@@ -385,7 +399,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
     # Get everything by image.
     boxes = []
     gt_classes = []
-    gt_attributes = []
+   # gt_attributes = []
     relationships = []
     for i in range(len(image_index)):
         i_obj_start = im_to_first_box[i]
@@ -395,7 +409,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
 
         boxes_i = all_boxes[i_obj_start : i_obj_end + 1, :]
         gt_classes_i = all_labels[i_obj_start : i_obj_end + 1]
-        gt_attributes_i = all_attributes[i_obj_start : i_obj_end + 1, :]
+        #gt_attributes_i = all_attributes[i_obj_start : i_obj_end + 1, :]
 
         if i_rel_start >= 0:
             predicates = _relation_predicates[i_rel_start : i_rel_end + 1]
@@ -424,7 +438,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
 
         boxes.append(boxes_i)
         gt_classes.append(gt_classes_i)
-        gt_attributes.append(gt_attributes_i)
+        #gt_attributes.append(gt_attributes_i)
         relationships.append(rels)
 
-    return split_mask, boxes, gt_classes, gt_attributes, relationships
+    return split_mask, boxes, gt_classes, relationships # gt_attributes,

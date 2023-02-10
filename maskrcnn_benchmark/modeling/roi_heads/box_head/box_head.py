@@ -23,7 +23,7 @@ class ROIBoxHead(torch.nn.Module):
     def __init__(self, cfg, in_channels):
         super(ROIBoxHead, self).__init__()
         self.cfg = cfg.clone()
-        self.feature_extractor = make_roi_box_feature_extractor(cfg, in_channels, half_out=self.cfg.MODEL.ATTRIBUTE_ON)
+        self.feature_extractor = make_roi_box_feature_extractor(cfg, in_channels) #, half_out=self.cfg.MODEL.ATTRIBUTE_ON
         self.predictor = make_roi_box_predictor(
             cfg, self.feature_extractor.out_channels)
         self.post_processor = make_roi_box_post_processor(cfg)
@@ -50,7 +50,7 @@ class ROIBoxHead(torch.nn.Module):
         if self.cfg.MODEL.RELATION_ON:
             if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
                 # use ground truth box as proposals
-                proposals = [target.copy_with_fields(["labels", "attributes"]) for target in targets]
+                proposals = [target.copy_with_fields(["labels"]) for target in targets] #, "attributes"
                 x = self.feature_extractor(features, proposals)
                 if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
                     # mode==predcls

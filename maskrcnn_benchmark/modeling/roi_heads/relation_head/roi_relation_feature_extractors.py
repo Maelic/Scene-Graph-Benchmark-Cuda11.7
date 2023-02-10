@@ -10,7 +10,7 @@ from maskrcnn_benchmark.modeling.make_layers import group_norm
 from maskrcnn_benchmark.modeling.make_layers import make_fc
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_union, boxlist_intersection
 from maskrcnn_benchmark.modeling.roi_heads.box_head.roi_box_feature_extractors import make_roi_box_feature_extractor
-from maskrcnn_benchmark.modeling.roi_heads.attribute_head.roi_attribute_feature_extractors import make_roi_attribute_feature_extractor
+#from maskrcnn_benchmark.modeling.roi_heads.attribute_head.roi_attribute_feature_extractors import make_roi_attribute_feature_extractor
 
 
 
@@ -26,13 +26,13 @@ class RelationFeatureExtractor(nn.Module):
         resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
         pool_all_levels = cfg.MODEL.ROI_RELATION_HEAD.POOLING_ALL_LEVELS
         
-        if cfg.MODEL.ATTRIBUTE_ON:
-            self.feature_extractor = make_roi_box_feature_extractor(cfg, in_channels, half_out=True, cat_all_levels=pool_all_levels)
-            self.att_feature_extractor = make_roi_attribute_feature_extractor(cfg, in_channels, half_out=True, cat_all_levels=pool_all_levels)
-            self.out_channels = self.feature_extractor.out_channels * 2
-        else:
-            self.feature_extractor = make_roi_box_feature_extractor(cfg, in_channels, cat_all_levels=pool_all_levels)
-            self.out_channels = self.feature_extractor.out_channels
+        # if cfg.MODEL.ATTRIBUTE_ON:
+        #     self.feature_extractor = make_roi_box_feature_extractor(cfg, in_channels, half_out=True, cat_all_levels=pool_all_levels)
+        #     self.att_feature_extractor = make_roi_attribute_feature_extractor(cfg, in_channels, half_out=True, cat_all_levels=pool_all_levels)
+        #     self.out_channels = self.feature_extractor.out_channels * 2
+        # else:
+        self.feature_extractor = make_roi_box_feature_extractor(cfg, in_channels, cat_all_levels=pool_all_levels)
+        self.out_channels = self.feature_extractor.out_channels
 
         # separete spatial
         self.separate_spatial = self.cfg.MODEL.ROI_RELATION_HEAD.CAUSAL.SEPARATE_SPATIAL
@@ -100,11 +100,11 @@ class RelationFeatureExtractor(nn.Module):
             union_features = union_vis_features + rect_features
             union_features = self.feature_extractor.forward_without_pool(union_features) # (total_num_rel, out_channels)
 
-        if self.cfg.MODEL.ATTRIBUTE_ON:
-            union_att_features = self.att_feature_extractor.pooler(x, union_proposals)
-            union_features_att = union_att_features + rect_features
-            union_features_att = self.att_feature_extractor.forward_without_pool(union_features_att)
-            union_features = torch.cat((union_features, union_features_att), dim=-1)
+        # if self.cfg.MODEL.ATTRIBUTE_ON:
+        #     union_att_features = self.att_feature_extractor.pooler(x, union_proposals)
+        #     union_features_att = union_att_features + rect_features
+        #     union_features_att = self.att_feature_extractor.forward_without_pool(union_features_att)
+        #     union_features = torch.cat((union_features, union_features_att), dim=-1)
             
         return union_features
 

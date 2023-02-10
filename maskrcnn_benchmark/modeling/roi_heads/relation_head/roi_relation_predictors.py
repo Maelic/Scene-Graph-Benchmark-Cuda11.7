@@ -12,7 +12,7 @@ from .model_msg_passing import IMPContext
 from .model_vtranse import VTransEFeature
 from .model_vctree import VCTreeLSTMContext
 from .model_motifs import LSTMContext, FrequencyBias
-from .model_motifs_with_attribute import AttributeLSTMContext
+#from .model_motifs_with_attribute import AttributeLSTMContext
 from .model_transformer import TransformerContext
 from .utils_relation import layer_init, get_box_info, get_box_pair_info
 from maskrcnn_benchmark.data import get_dataset_statistics
@@ -22,10 +22,10 @@ from maskrcnn_benchmark.data import get_dataset_statistics
 class TransformerPredictor(nn.Module):
     def __init__(self, config, in_channels):
         super(TransformerPredictor, self).__init__()
-        self.attribute_on = config.MODEL.ATTRIBUTE_ON
+        #self.attribute_on = config.MODEL.ATTRIBUTE_ON
         # load parameters
         self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
-        self.num_att_cls = config.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
+        #self.num_att_cls = config.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
         self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
         
         assert in_channels is not None
@@ -35,9 +35,9 @@ class TransformerPredictor(nn.Module):
 
         # load class dict
         statistics = get_dataset_statistics(config)
-        obj_classes, rel_classes, att_classes = statistics['obj_classes'], statistics['rel_classes'], statistics['att_classes']
+        obj_classes, rel_classes = statistics['obj_classes'], statistics['rel_classes'] #, statistics['att_classes']
         assert self.num_obj_cls==len(obj_classes)
-        assert self.num_att_cls==len(att_classes)
+        #assert self.num_att_cls==len(att_classes)
         assert self.num_rel_cls==len(rel_classes)
         # module construct
         self.context_layer = TransformerContext(config, obj_classes, rel_classes, in_channels)
@@ -75,10 +75,10 @@ class TransformerPredictor(nn.Module):
             rel_pair_idxs (list[Tensor]): (num_rel, 2) index of subject and object
             union_features (Tensor): (batch_num_rel, context_pooling_dim): visual union feature of each pair
         """
-        if self.attribute_on:
-            obj_dists, obj_preds, att_dists, edge_ctx = self.context_layer(roi_features, proposals, logger)
-        else:
-            obj_dists, obj_preds, edge_ctx = self.context_layer(roi_features, proposals, logger)
+        # if self.attribute_on:
+        #     obj_dists, obj_preds, att_dists, edge_ctx = self.context_layer(roi_features, proposals, logger)
+        # else:
+        obj_dists, obj_preds, edge_ctx = self.context_layer(roi_features, proposals, logger)
 
         # post decode
         edge_rep = self.post_emb(edge_ctx)
@@ -123,11 +123,11 @@ class TransformerPredictor(nn.Module):
 
         add_losses = {}
 
-        if self.attribute_on:
-            att_dists = att_dists.split(num_objs, dim=0)
-            return (obj_dists, att_dists), rel_dists, add_losses
-        else:
-            return obj_dists, rel_dists, add_losses
+        # if self.attribute_on:
+        #     att_dists = att_dists.split(num_objs, dim=0)
+        #     return (obj_dists, att_dists), rel_dists, add_losses
+        # else:
+        return obj_dists, rel_dists, add_losses
 
 
 @registry.ROI_RELATION_PREDICTOR.register("IMPPredictor")
@@ -204,9 +204,9 @@ class IMPPredictor(nn.Module):
 class MotifPredictor(nn.Module):
     def __init__(self, config, in_channels):
         super(MotifPredictor, self).__init__()
-        self.attribute_on = config.MODEL.ATTRIBUTE_ON
+        #self.attribute_on = config.MODEL.ATTRIBUTE_ON
         self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
-        self.num_att_cls = config.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
+        #self.num_att_cls = config.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
         self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
         
         assert in_channels is not None
@@ -221,10 +221,10 @@ class MotifPredictor(nn.Module):
         assert self.num_att_cls==len(att_classes)
         assert self.num_rel_cls==len(rel_classes)
         # init contextual lstm encoding
-        if self.attribute_on:
-            self.context_layer = AttributeLSTMContext(config, obj_classes, att_classes, rel_classes, in_channels)
-        else:
-            self.context_layer = LSTMContext(config, obj_classes, rel_classes, in_channels)
+        # if self.attribute_on:
+        #     self.context_layer = AttributeLSTMContext(config, obj_classes, att_classes, rel_classes, in_channels)
+        # else:
+        self.context_layer = LSTMContext(config, obj_classes, rel_classes, in_channels)
 
         # post decoding
         self.hidden_dim = config.MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM
@@ -259,10 +259,10 @@ class MotifPredictor(nn.Module):
         """
 
         # encode context infomation
-        if self.attribute_on:
-            obj_dists, obj_preds, att_dists, edge_ctx = self.context_layer(roi_features, proposals, logger)
-        else:
-            obj_dists, obj_preds, edge_ctx, _ = self.context_layer(roi_features, proposals, logger)
+        # if self.attribute_on:
+        #     obj_dists, obj_preds, att_dists, edge_ctx = self.context_layer(roi_features, proposals, logger)
+        # else:
+        obj_dists, obj_preds, edge_ctx, _ = self.context_layer(roi_features, proposals, logger)
 
         # post decode
         edge_rep = self.post_emb(edge_ctx)
@@ -306,30 +306,30 @@ class MotifPredictor(nn.Module):
         # because in decoder_rnn, preds has been through a nms stage
         add_losses = {}
 
-        if self.attribute_on:
-            att_dists = att_dists.split(num_objs, dim=0)
-            return (obj_dists, att_dists), rel_dists, add_losses
-        else:
-            return obj_dists, rel_dists, add_losses
+        # if self.attribute_on:
+        #     att_dists = att_dists.split(num_objs, dim=0)
+        #     return (obj_dists, att_dists), rel_dists, add_losses
+        # else:
+        return obj_dists, rel_dists, add_losses
 
 
 @registry.ROI_RELATION_PREDICTOR.register("VCTreePredictor")
 class VCTreePredictor(nn.Module):
     def __init__(self, config, in_channels):
         super(VCTreePredictor, self).__init__()
-        self.attribute_on = config.MODEL.ATTRIBUTE_ON
+        #self.attribute_on = config.MODEL.ATTRIBUTE_ON
         self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
-        self.num_att_cls = config.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
+        #self.num_att_cls = config.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
         self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
         
         assert in_channels is not None
         num_inputs = in_channels
 
         # load class dict
-        statistics = get_dataset_statistics(config)
-        obj_classes, rel_classes, att_classes = statistics['obj_classes'], statistics['rel_classes'], statistics['att_classes']
+        statistics = get_dataset_statistics(config) # , att_classes
+        obj_classes, rel_classes = statistics['obj_classes'], statistics['rel_classes']#, statistics['att_classes']
         assert self.num_obj_cls==len(obj_classes)
-        assert self.num_att_cls==len(att_classes)
+        #assert self.num_att_cls==len(att_classes)
         assert self.num_rel_cls==len(rel_classes)
         # init contextual lstm encoding
         self.context_layer = VCTreeLSTMContext(config, obj_classes, rel_classes, statistics, in_channels)
@@ -435,7 +435,7 @@ class CausalAnalysisPredictor(nn.Module):
     def __init__(self, config, in_channels):
         super(CausalAnalysisPredictor, self).__init__()
         self.cfg = config
-        self.attribute_on = config.MODEL.ATTRIBUTE_ON
+        #self.attribute_on = config.MODEL.ATTRIBUTE_ON
         self.spatial_for_vision = config.MODEL.ROI_RELATION_HEAD.CAUSAL.SPATIAL_FOR_VISION
         self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
         self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES

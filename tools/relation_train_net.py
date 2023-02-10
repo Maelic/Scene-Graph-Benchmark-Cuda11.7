@@ -15,6 +15,10 @@ import datetime
 import torch
 from torch.nn.utils import clip_grad_norm_
 
+import wandb
+
+wandb.init(project="scene-graph-benchmark", entity="maelic")
+
 from maskrcnn_benchmark.config import cfg
 from maskrcnn_benchmark.data import make_data_loader
 from maskrcnn_benchmark.solver import make_lr_scheduler
@@ -31,16 +35,7 @@ from maskrcnn_benchmark.utils.logger import setup_logger, debug_print
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
 from maskrcnn_benchmark.utils.metric_logger import MetricLogger
 
-
-# See if we can use apex.DistributedDataParallel instead of the torch default,
-# and enable mixed-precision via apex.amp
-try:
-    from apex import amp
-except ImportError:
-    raise ImportError('Use APEX for multi-precision via apex.amp')
-
-
-def train(cfg, local_rank, distributed, logger):
+def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
     debug_print(logger, 'prepare training')
     model = build_detection_model(cfg) 
     debug_print(logger, 'end model construction')
@@ -62,9 +57,9 @@ def train(cfg, local_rank, distributed, logger):
     load_mapping = {"roi_heads.relation.box_feature_extractor" : "roi_heads.box.feature_extractor",
                     "roi_heads.relation.union_feature_extractor.feature_extractor" : "roi_heads.box.feature_extractor"}
     
-    if cfg.MODEL.ATTRIBUTE_ON:
-        load_mapping["roi_heads.relation.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
-        load_mapping["roi_heads.relation.union_feature_extractor.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
+    # if cfg.MODEL.ATTRIBUTE_ON:
+    #     load_mapping["roi_heads.relation.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
+    #     load_mapping["roi_heads.relation.union_feature_extractor.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
 
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
@@ -74,10 +69,10 @@ def train(cfg, local_rank, distributed, logger):
     optimizer = make_optimizer(cfg, model, logger, slow_heads=slow_heads, slow_ratio=10.0, rl_factor=float(num_batch))
     scheduler = make_lr_scheduler(cfg, optimizer, logger)
     debug_print(logger, 'end optimizer and shcedule')
+
     # Initialize mixed-precision training
-    use_mixed_precision = cfg.DTYPE == "float16"
-    amp_opt_level = 'O1' if use_mixed_precision else 'O0'
-    model, optimizer = amp.initialize(model, optimizer, opt_level=amp_opt_level)
+    use_amp = True if cfg.DTYPE == "float16" else False
+    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(
@@ -123,8 +118,9 @@ def train(cfg, local_rank, distributed, logger):
         logger.info("Validate before training")
         run_val(cfg, model, val_data_loaders, distributed, logger)
 
-    logger.info("Start training")
     meters = MetricLogger(delimiter="  ")
+
+    logger.info("Start training")
     max_iter = len(train_data_loader)
     start_iter = arguments["iteration"]
     start_training_time = time.time()
@@ -134,37 +130,41 @@ def train(cfg, local_rank, distributed, logger):
     for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
         if any(len(target) < 1 for target in targets):
             logger.error(f"Iteration={iteration + 1} || Image Ids used for training {_} || targets Length={[len(target) for target in targets]}" )
+            continue
         data_time = time.time() - end
         iteration = iteration + 1
         arguments["iteration"] = iteration
-
         model.train()
+
         fix_eval_modules(eval_modules)
 
         images = images.to(device)
         targets = [target.to(device) for target in targets]
 
-        loss_dict = model(images, targets)
+        # Note: If mixed precision is not used, this ends up doing nothing
+        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
+            loss_dict = model(images, targets)
 
         losses = sum(loss for loss in loss_dict.values())
+
+        # Scaling loss
+        scaler.scale(losses).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+        optimizer.zero_grad()
 
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = reduce_loss_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
-        meters.update(loss=losses_reduced, **loss_dict_reduced)
 
-        optimizer.zero_grad()
-        # Note: If mixed precision is not used, this ends up doing nothing
-        # Otherwise apply loss scaling for mixed-precision recipe
-        with amp.scale_loss(losses, optimizer) as scaled_losses:
-            scaled_losses.backward()
-        
+        meters.update(loss=losses_reduced, **loss_dict_reduced)
+        wandb.log({"loss": losses_reduced})
+
         # add clip_grad_norm from MOTIFS, tracking gradient, used for debug
         verbose = (iteration % cfg.SOLVER.PRINT_GRAD_FREQ) == 0 or print_first_grad # print grad or not
         print_first_grad = False
         clip_grad_norm([(n, p) for n, p in model.named_parameters() if p.requires_grad], max_norm=cfg.SOLVER.GRAD_NORM_CLIP, logger=logger, verbose=verbose, clip=True)
-
-        optimizer.step()
 
         batch_time = time.time() - end
         end = time.time()
@@ -239,8 +239,8 @@ def run_val(cfg, model, val_data_loaders, distributed, logger):
         iou_types = iou_types + ("keypoints",)
     if cfg.MODEL.RELATION_ON:
         iou_types = iou_types + ("relations", )
-    if cfg.MODEL.ATTRIBUTE_ON:
-        iou_types = iou_types + ("attributes", )
+    # if cfg.MODEL.ATTRIBUTE_ON:
+    #     iou_types = iou_types + ("attributes", )
 
     dataset_names = cfg.DATASETS.VAL
     val_result = []
@@ -281,8 +281,8 @@ def run_test(cfg, model, distributed, logger):
         iou_types = iou_types + ("keypoints",)
     if cfg.MODEL.RELATION_ON:
         iou_types = iou_types + ("relations", )
-    if cfg.MODEL.ATTRIBUTE_ON:
-        iou_types = iou_types + ("attributes", )
+    # if cfg.MODEL.ATTRIBUTE_ON:
+    #     iou_types = iou_types + ("attributes", )
     output_folders = [None] * len(cfg.DATASETS.TEST)
     dataset_names = cfg.DATASETS.TEST
     if cfg.OUTPUT_DIR:
@@ -323,6 +323,13 @@ def main():
         dest="skip_test",
         help="Do not test the final model",
         action="store_true",
+    )
+    parser.add_argument(
+        "--use-tensorboard",
+        dest="use_tensorboard",
+        help="Use tensorboardX logger (Requires tensorboardX installed)",
+        action="store_true",
+        default=False
     )
     parser.add_argument(
         "opts",
@@ -369,7 +376,13 @@ def main():
     # save overloaded model config in the output directory
     save_config(cfg, output_config_path)
 
-    model = train(cfg, args.local_rank, args.distributed, logger)
+    model = train(
+        cfg=cfg,
+        local_rank=args.local_rank,
+        distributed=args.distributed,
+        logger=logger,
+        use_tensorboard=args.use_tensorboard
+    )
 
     if not args.skip_test:
         run_test(cfg, model, args.distributed, logger)

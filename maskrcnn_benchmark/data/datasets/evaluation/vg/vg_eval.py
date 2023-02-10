@@ -25,8 +25,8 @@ def do_vg_evaluation(
     # get zeroshot triplet
     zeroshot_triplet = torch.load("maskrcnn_benchmark/data/datasets/evaluation/vg/zeroshot_triplet.pytorch", map_location=torch.device("cpu")).long().numpy()
 
-    attribute_on = cfg.MODEL.ATTRIBUTE_ON
-    num_attributes = cfg.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
+    #attribute_on = cfg.MODEL.ATTRIBUTE_ON
+    #num_attributes = cfg.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
     # extract evaluation settings from cfg
     # mode = cfg.TEST.RELATION.EVAL_MODE
     if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
@@ -158,8 +158,8 @@ def do_vg_evaluation(
         global_container['multiple_preds'] = multiple_preds
         global_container['num_rel_category'] = num_rel_category
         global_container['iou_thres'] = iou_thres
-        global_container['attribute_on'] = attribute_on
-        global_container['num_attributes'] = num_attributes
+        #global_container['attribute_on'] = attribute_on
+        #global_container['num_attributes'] = num_attributes
         
         for groundtruth, prediction in zip(groundtruths, predictions):
             evaluate_relation_of_one_image(groundtruth, prediction, global_container, evaluator)
