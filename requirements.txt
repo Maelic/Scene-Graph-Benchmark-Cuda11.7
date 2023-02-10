@@ -1,3 +1,7 @@
-torchtext
-opencv-python
-overrides
+ninja
+yacs
+cython
+matplotlib
+tqdm
+torchtext==0.4
+pandas
