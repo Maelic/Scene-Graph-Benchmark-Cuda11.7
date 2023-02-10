@@ -22,15 +22,20 @@ from maskrcnn_benchmark.engine.inference import inference
 from maskrcnn_benchmark.modeling.detector import build_detection_model
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
-from maskrcnn_benchmark.utils.comm import synchronize, get_rank, is_main_process
+from maskrcnn_benchmark.utils.comm import synchronize, get_rank
 from maskrcnn_benchmark.utils.imports import import_file
 from maskrcnn_benchmark.utils.logger import setup_logger
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
 from maskrcnn_benchmark.utils.metric_logger import MetricLogger
 
-import wandb
 
-wandb.init(project="faster-rcnn-sgg", entity="maelic")
+# See if we can use apex.DistributedDataParallel instead of the torch default,
+# and enable mixed-precision via apex.amp
+try:
+    from apex import amp
+except ImportError:
+    raise ImportError('Use APEX for multi-precision via apex.amp')
+
 
 def train(cfg, local_rank, distributed, logger):
     model = build_detection_model(cfg)
@@ -41,8 +46,9 @@ def train(cfg, local_rank, distributed, logger):
     scheduler = make_lr_scheduler(cfg, optimizer)
 
     # Initialize mixed-precision training
-    use_amp = True if cfg.DTYPE == "float16" else False
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    use_mixed_precision = cfg.DTYPE == "float16"
+    amp_opt_level = 'O1' if use_mixed_precision else 'O0'
+    model, optimizer = amp.initialize(model, optimizer, opt_level=amp_opt_level)
 
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(
@@ -87,9 +93,7 @@ def train(cfg, local_rank, distributed, logger):
     start_iter = arguments["iteration"]
     start_training_time = time.time()
     end = time.time()
-
     for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
-
         model.train()
         
         if any(len(target) < 1 for target in targets):
@@ -99,30 +103,26 @@ def train(cfg, local_rank, distributed, logger):
         iteration = iteration + 1
         arguments["iteration"] = iteration
 
-        # Note: If mixed precision is not used, this ends up doing nothing
-        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
-            images = images.to(device)
-            targets = [target.to(device) for target in targets]
+        scheduler.step()
 
-            loss_dict = model(images, targets)
+        images = images.to(device)
+        targets = [target.to(device) for target in targets]
 
-            losses = sum(loss for loss in loss_dict.values())
+        loss_dict = model(images, targets)
 
-        scaler.scale(losses).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        losses = sum(loss for loss in loss_dict.values())
 
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = reduce_loss_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
         meters.update(loss=losses_reduced, **loss_dict_reduced)
 
-        wandb.log({"loss": losses_reduced})
-
         optimizer.zero_grad()
-
+        # Note: If mixed precision is not used, this ends up doing nothing
+        # Otherwise apply loss scaling for mixed-precision recipe
+        with amp.scale_loss(losses, optimizer) as scaled_losses:
+            scaled_losses.backward()
         optimizer.step()
-        scheduler.step()
 
         batch_time = time.time() - end
         end = time.time()
@@ -152,8 +152,7 @@ def train(cfg, local_rank, distributed, logger):
 
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
             logger.info("Start validating")
-            res = run_val(cfg, model, val_data_loaders, distributed)
-            wandb.log({"mAp", res})
+            run_val(cfg, model, val_data_loaders, distributed)
 
         if iteration % checkpoint_period == 0:
             checkpointer.save("model_{:07d}".format(iteration), **arguments)
@@ -172,15 +171,22 @@ def train(cfg, local_rank, distributed, logger):
 
 
 def run_val(cfg, model, val_data_loaders, distributed):
-    results = []
     if distributed:
         model = model.module
     torch.cuda.empty_cache()  # TODO check if it helps
     iou_types = ("bbox",)
+    if cfg.MODEL.MASK_ON:
+        iou_types = iou_types + ("segm",)
+    if cfg.MODEL.KEYPOINT_ON:
+        iou_types = iou_types + ("keypoints",)
+    if cfg.MODEL.RELATION_ON:
+        iou_types = iou_types + ("relations", )
+    # if cfg.MODEL.ATTRIBUTE_ON:
+    #     iou_types = iou_types + ("attributes", )
         
     dataset_names = cfg.DATASETS.VAL
     for dataset_name, val_data_loader in zip(dataset_names, val_data_loaders):
-        dataset_result = inference(
+        inference(
             cfg,
             model,
             val_data_loader,
@@ -193,19 +199,21 @@ def run_val(cfg, model, val_data_loaders, distributed):
             output_folder=None,
         )
         synchronize()
-        results.append(dataset_result)
 
-    if is_main_process(): 
-        map_results, raw_results = results[0]
-        bbox_map = map_results.results["bbox"]['AP']
-    return bbox_map
 
 def run_test(cfg, model, distributed):
     if distributed:
         model = model.module
     torch.cuda.empty_cache()  # TODO check if it helps
     iou_types = ("bbox",)
-
+    if cfg.MODEL.MASK_ON:
+        iou_types = iou_types + ("segm",)
+    if cfg.MODEL.KEYPOINT_ON:
+        iou_types = iou_types + ("keypoints",)
+    if cfg.MODEL.RELATION_ON:
+        iou_types = iou_types + ("relations", )
+    # if cfg.MODEL.ATTRIBUTE_ON:
+    #     iou_types = iou_types + ("attributes", )
     output_folders = [None] * len(cfg.DATASETS.TEST)
     dataset_names = cfg.DATASETS.TEST
     if cfg.OUTPUT_DIR:
