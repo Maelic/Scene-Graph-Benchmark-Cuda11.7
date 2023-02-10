@@ -7,7 +7,7 @@ import copy
 
 class DatasetCatalog(object):
     #DATA_DIR = "/home/users/alatif/data/ImageCorpora/"
-    DATA_DIR = "/home/maelic/Documents/PhD/Datasets/"
+    DATA_DIR = "/media/rafi/Samsung_T5/_DATASETS/"
     DATASETS = {
         "coco_2017_train": {
             "img_dir": "coco/train2017",
@@ -107,17 +107,17 @@ class DatasetCatalog(object):
             "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_test.json"
         },
         "VG_stanford_filtered": {
-            "img_dir": "VisualGenome/VG_100K",
-            "roidb_file": "VisualGenome/VG-SGG.h5",
-            "dict_file": "VisualGenome/VG-SGG-dicts.json",
-            "image_file": "VisualGenome/image_data.json",
+            "img_dir": "vg/VG_100K",
+            "roidb_file": "vg/VG-SGG.h5",
+            "dict_file": "vg/VG-SGG-dicts.json",
+            "image_file": "vg/image_data.json",
         },
         "VG_stanford_filtered_with_attribute": {
-            "img_dir": "VisualGenome/VG_100K",
-            "roidb_file": "VisualGenome/IndoorVG/VG-SGG-with-attri.h5",
-            "dict_file": "VisualGenome/IndoorVG/VG-SGG-dicts-with-attri.json",
-            "image_file": "VisualGenome/IndoorVG/image_data.json",
-            "capgraphs_file": "VisualGenome/vg_capgraphs_anno.json",
+            "img_dir": "vg/VG_100K",
+            "roidb_file": "vg/VG-SGG-with-attri.h5",
+            "dict_file": "vg/VG-SGG-dicts-with-attri.json",
+            "image_file": "vg/image_data.json",
+            "capgraphs_file": "vg/vg_capgraphs_anno.json",
         },
     }
 
