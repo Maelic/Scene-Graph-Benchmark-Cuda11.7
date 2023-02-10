@@ -24,7 +24,7 @@ from maskrcnn_benchmark.engine.inference import inference
 from maskrcnn_benchmark.modeling.detector import build_detection_model
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
-from maskrcnn_benchmark.utils.comm import synchronize, get_rank
+from maskrcnn_benchmark.utils.comm import synchronize, get_rank, all_gather
 from maskrcnn_benchmark.utils.imports import import_file
 from maskrcnn_benchmark.utils.logger import setup_logger
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
@@ -100,6 +100,7 @@ def train(cfg, local_rank, distributed, logger):
     start_iter = arguments["iteration"]
     start_training_time = time.time()
     end = time.time()
+
     for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
         model.train()
         
@@ -159,12 +160,16 @@ def train(cfg, local_rank, distributed, logger):
 
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
             logger.info("Start validating")
-            run_val(cfg, model, val_data_loaders, distributed)
+            res = run_val(cfg, model, val_data_loaders, distributed)
+            wandb.log({"mAp", res})
 
         if iteration % checkpoint_period == 0:
             checkpointer.save("model_{:07d}".format(iteration), **arguments)
         if iteration == max_iter:
             checkpointer.save("model_final", **arguments)
+
+        wandb.log({"loss": losses_reduced})
+
 
     total_training_time = time.time() - start_training_time
     total_time_str = str(datetime.timedelta(seconds=total_training_time))
@@ -207,6 +212,10 @@ def run_val(cfg, model, val_data_loaders, distributed):
         )
         synchronize()
 
+    if is_main_process(): 
+        map_results, raw_results = results[0]
+        bbox_map = map_results.results["bbox"]['AP']
+    return bbox_map
 
 def run_test(cfg, model, distributed):
     if distributed:
