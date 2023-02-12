@@ -12,6 +12,8 @@ import os
 import time
 import datetime
 
+import wandb
+
 import torch
 from maskrcnn_benchmark.config import cfg
 from maskrcnn_benchmark.data import make_data_loader
@@ -38,6 +40,11 @@ except ImportError:
 
 
 def train(cfg, local_rank, distributed, logger):
+
+    # get run name for logger
+    run_name = cfg.OUTPUT_DIR.split('/')[-1]
+    wandb.init(project="scene-graph-benchmark", entity="maelic", name=run_name, config=cfg)
+
     model = build_detection_model(cfg)
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
