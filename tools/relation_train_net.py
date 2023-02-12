@@ -17,8 +17,6 @@ from torch.nn.utils import clip_grad_norm_
 
 import wandb
 
-wandb.init(project="scene-graph-benchmark", entity="maelic")
-
 from maskrcnn_benchmark.config import cfg
 from maskrcnn_benchmark.data import make_data_loader
 from maskrcnn_benchmark.solver import make_lr_scheduler
@@ -43,6 +41,11 @@ except ImportError:
     raise ImportError('Use APEX for multi-precision via apex.amp')
 
 def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
+
+    # get run name for logger
+    run_name = cfg.OUTPUT_DIR.split('/')[-1]
+    wandb.init(project="scene-graph-benchmark", entity="maelic", name=run_name, config=cfg)
+
     debug_print(logger, 'prepare training')
     model = build_detection_model(cfg) 
     debug_print(logger, 'end model construction')

@@ -118,6 +118,12 @@ class DatasetCatalog(object):
             "dict_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/VG-SGG-dicts.json",
             "image_file": "VG/original/image_data.json",
         },
+        "VG150_connected_filtered": {
+            "img_dir": "VisualGenome/VG_100K",
+            "roidb_file": "/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/VG_refinement/data_tools/VG80K/connected/VG-SGG.h5",
+            "dict_file": "/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/VG_refinement/data_tools/VG80K/connected/VG-SGG-dicts.json",
+            "image_file": "/home/maelic/Documents/PhD/Datasets/VisualGenome/anno/image_data.json",
+        },
         "VG_indoor_filtered": {
             "img_dir": "VG/VG_100K",
             "roidb_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/IndoorVG/with_part_whole/VG-SGG.h5",
@@ -133,7 +139,6 @@ class DatasetCatalog(object):
             "image_file": "VG/original/image_data.json",
             "capgraphs_file": "VG/vg_capgraphs_anno.json",
         },
-
         "VrR-VG_filtered_with_attribute": {
             "img_dir": "VG/VG_100K",
             "roidb_file": "VG/VrR-VG/VrR_VG-SGG-with-attri.h5",
