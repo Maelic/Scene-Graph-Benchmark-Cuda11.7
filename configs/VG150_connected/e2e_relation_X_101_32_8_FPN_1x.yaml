@@ -94,14 +94,14 @@ MODEL:
       VAL_DIM: 64
       INNER_DIM: 2048 
 DATASETS:
-  TRAIN: ("VG150_curated_filtered_train",)
-  VAL: ("VG150_curated_filtered_val",)
-  TEST: ("VG150_curated_filtered_test",)
+  TRAIN: ("VG150_connected_filtered_train",)
+  VAL: ("VG150_connected_filtered_val",)
+  TEST: ("VG150_connected_filtered_test",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
   BIAS_LR_FACTOR: 1
-  BASE_LR: 0.01
+  BASE_LR: 0.02
   WARMUP_FACTOR: 0.1
   WEIGHT_DECAY: 0.0001
   MOMENTUM: 0.9
