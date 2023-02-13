@@ -113,10 +113,16 @@ class DatasetCatalog(object):
             "image_file": "VG/IndoorVG/image_data.json",
         },
         "VG150_curated_filtered": {
-            "img_dir": "VG/VG_100K",
+            "img_dir": "/home/maelic/Documents/PhD/Datasets/VisualGenome/VG_100K",
             "roidb_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/VG-SGG.h5",
             "dict_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/VG-SGG-dicts.json",
-            "image_file": "VG/original/image_data.json",
+            "image_file": "/home/maelic/Documents/PhD/Datasets/VisualGenome/anno/image_data.json",
+        },
+        "VG150_connected_filtered": {
+            "img_dir": "/home/maelic/Documents/PhD/Datasets/VisualGenome/VG_100K",
+            "roidb_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/connected/VG-SGG.h5",
+            "dict_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/connected/VG-SGG-dicts.json",
+            "image_file": "/home/maelic/Documents/PhD/Datasets/VisualGenome/anno/image_data.json",
         },
         "VG_indoor_filtered": {
             "img_dir": "VG/VG_100K",

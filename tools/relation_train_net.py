@@ -11,13 +11,12 @@ import argparse
 import os
 import time
 import datetime
+import numpy as np
 
 import torch
 from torch.nn.utils import clip_grad_norm_
 
 import wandb
-
-wandb.init(project="scene-graph-benchmark", entity="maelic")
 
 from maskrcnn_benchmark.config import cfg
 from maskrcnn_benchmark.data import make_data_loader
@@ -35,10 +34,15 @@ from maskrcnn_benchmark.utils.logger import setup_logger, debug_print
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
 from maskrcnn_benchmark.utils.metric_logger import MetricLogger
 
-def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
+def train(cfg, local_rank, distributed, logger, use_wandb):
     debug_print(logger, 'prepare training')
     model = build_detection_model(cfg) 
     debug_print(logger, 'end model construction')
+
+    # get run name for logger
+    if use_wandb:
+        run_name = cfg.OUTPUT_DIR.split('/')[-1]
+        wandb.init(project="scene-graph-benchmark", entity="maelic", name=run_name, config=cfg)
 
     # modules that should be always set in eval mode
     # their eval() method should be called after model.train() is called
@@ -116,7 +120,7 @@ def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
 
     if cfg.SOLVER.PRE_VAL:
         logger.info("Validate before training")
-        run_val(cfg, model, val_data_loaders, distributed, logger)
+        run_val(cfg, model, val_data_loaders, distributed, logger, device=device)
 
     meters = MetricLogger(delimiter="  ")
 
@@ -142,7 +146,6 @@ def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
         targets = [target.to(device) for target in targets]
 
         # Note: If mixed precision is not used, this ends up doing nothing
-        #use_amp = False
         with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
             loss_dict = model(images, targets)
 
@@ -153,10 +156,15 @@ def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
 
         meters.update(loss=losses_reduced, **loss_dict_reduced)
-        wandb.log({"loss": losses_reduced})
+        if use_wandb:
+            wandb.log({"loss": losses_reduced}, step=iteration)
 
         # Scaling loss
         scaler.scale(losses).backward()
+
+        # Unscale the gradients of optimizer's assigned params in-place before cliping
+        # from https://pytorch.org/docs/stable/notes/amp_examples.html
+        scaler.unscale_(optimizer)
 
         # add clip_grad_norm from MOTIFS, tracking gradient, used for debug
         verbose = (iteration % cfg.SOLVER.PRINT_GRAD_FREQ) == 0 or print_first_grad # print grad or not
@@ -200,15 +208,23 @@ def train(cfg, local_rank, distributed, logger, use_tensorboard=False):
             checkpointer.save("model_final", **arguments)
 
         val_result = None # used for scheduler updating
+        mean_recall = None
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
             logger.info("Start validating")
             val_result = run_val(cfg, model, val_data_loaders, distributed, logger)
-            logger.info("Validation Result: %.4f" % val_result)
+            mean_recall = float(np.mean(list(val_result['predcls_mean_recall'].values())))
+            logger.info("Validation Result, Average mR@K: %.4f" % mean_recall)
+            mode = assert_mode(cfg)
+            metrics = val_result[mode+'_mean_recall']
+            if use_wandb:
+                for k, v in metrics.items():
+                    wandb.log({f'mR@{k}': v}, step=iteration)            
  
         # scheduler should be called after optimizer.step() in pytorch>=1.1.0
         # https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
         if cfg.SOLVER.SCHEDULE.TYPE == "WarmupReduceLROnPlateau":
-            scheduler.step(val_result, epoch=iteration)
+            # Using mean recall instead of traditionnal recall for scheduler
+            scheduler.step(mean_recall, epoch=iteration)
             if scheduler.stage_count >= cfg.SOLVER.SCHEDULE.MAX_DECAY_STEP:
                 logger.info("Trigger MAX_DECAY_STEP at iteration {}.".format(iteration))
                 break
@@ -230,7 +246,7 @@ def fix_eval_modules(eval_modules):
             param.requires_grad = False
         # DO NOT use module.eval(), otherwise the module will be in the test mode, i.e., all self.training condition is set to False
 
-def run_val(cfg, model, val_data_loaders, distributed, logger):
+def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     if distributed:
         model = model.module
     torch.cuda.empty_cache()
@@ -263,15 +279,27 @@ def run_val(cfg, model, val_data_loaders, distributed, logger):
         synchronize()
 
         val_result.append(dataset_result)
+
+    # VG has only one val dataset
+    dataset_result = val_result[0]
+    if distributed:
+        for k1, v1 in dataset_result.items():
+            for k2, v2 in v1.items():
+                dataset_result[k1][k2] = torch.distributed.all_reduce(torch.tensor(np.mean(v2)).to(device).unsqueeze(0)).item() / torch.distributed.get_world_size()
+    else:
+        for k1, v1 in dataset_result.items():
+            for k2, v2 in v1.items():
+                dataset_result[k1][k2] = np.mean(v2)
+
     # support for multi gpu distributed testing
-    gathered_result = all_gather(torch.tensor(dataset_result).cpu())
-    gathered_result = [t.view(-1) for t in gathered_result]
-    gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
-    valid_result = gathered_result[gathered_result>=0]
-    val_result = float(valid_result.mean())
-    del gathered_result, valid_result
-    torch.cuda.empty_cache()
-    return val_result
+    # gathered_result = all_gather(torch.tensor(dataset_result).cpu())
+    # gathered_result = [t.view(-1) for t in gathered_result]
+    # gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
+    # valid_result = gathered_result[gathered_result>=0]
+    # val_result = float(valid_result.mean())
+    # del gathered_result, valid_result
+    # torch.cuda.empty_cache()
+    return dataset_result
 
 def run_test(cfg, model, distributed, logger):
     if distributed:
@@ -310,6 +338,16 @@ def run_test(cfg, model, distributed, logger):
         )
         synchronize()
 
+def assert_mode(cfg):
+    if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
+        if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
+            mode = 'predcls'
+        else:
+            mode = 'sgcls'
+    else:
+        mode = 'sgdet'
+    
+    return mode
 
 def main():
     parser = argparse.ArgumentParser(description="PyTorch Relation Detection Training")
@@ -340,7 +378,13 @@ def main():
         default=None,
         nargs=argparse.REMAINDER,
     )
-
+    parser.add_argument(
+        "--use-wandb",
+        dest="use_wandb",
+        help="Use wandb logger (Requires wandb installed)",
+        action="store_true",
+        default=False
+    )
     args = parser.parse_args()
 
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
@@ -384,7 +428,7 @@ def main():
         local_rank=args.local_rank,
         distributed=args.distributed,
         logger=logger,
-        use_tensorboard=args.use_tensorboard
+        use_wandb=args.use_wandb
     )
 
     if not args.skip_test:
