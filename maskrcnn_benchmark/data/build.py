@@ -165,7 +165,12 @@ def make_batch_data_sampler(
 
 def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0, dataset_to_test=None):
     assert mode in {'train', 'val', 'test'}
+    
+    # because yacs doesn't allow None anymore
+    if dataset_to_test == []:
+        dataset_to_test = None
     assert dataset_to_test in {'train', 'val', 'test', None}
+
     # this variable enable to run a test on any data split, even on the training dataset
     # without actually flagging it for training....
     if dataset_to_test is None:
