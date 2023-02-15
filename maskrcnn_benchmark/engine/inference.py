@@ -47,6 +47,7 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
             results_dict.update(
                 {img_id: result for img_id, result in zip(image_ids, output)}
             )
+        del output
     torch.cuda.empty_cache()
     return results_dict
 
