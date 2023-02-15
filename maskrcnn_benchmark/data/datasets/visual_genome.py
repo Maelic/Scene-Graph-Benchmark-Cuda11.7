@@ -340,15 +340,31 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
 
     # Filter out images without bounding boxes
     if filter_empty_rels:
-        data_split = roi_h5['split_rel'][:]
-        if split =='test':
-            split_flag = 2
-        elif split == 'val':
-            split_flag = 1
+        if 'split_rel' in roi_h5.keys():
+            data_split = roi_h5['split_rel'][:]
+            if split =='test':
+                split_flag = 2
+            elif split == 'val':
+                split_flag = 1
+            else:
+                split_flag = 0
+            split_mask = data_split == split_flag
+            split_mask &= roi_h5['img_to_first_rel'][:] >= 0
+            image_index = np.where(split_mask)[0]
         else:
-            split_flag = 0
-        split_mask = data_split == split_flag
-        split_mask &= roi_h5['img_to_first_rel'][:] >= 0
+            data_split = roi_h5['split'][:]
+            split_flag = 2 if split == 'test' else 0
+            split_mask = data_split == split_flag
+            split_mask &= roi_h5['img_to_first_rel'][:] >= 0
+
+            image_index = np.where(split_mask)[0]
+            if num_im > -1:
+                image_index = image_index[:num_im]
+            if num_val_im > 0:
+                if split == 'val':
+                    image_index = image_index[:num_val_im]
+                elif split == 'train':
+                    image_index = image_index[num_val_im:]
     else:
         data_split = roi_h5['split'][:]
         if split =='test':
@@ -359,17 +375,8 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
             split_flag = 0
         split_mask = data_split == split_flag
         split_mask &= roi_h5['img_to_first_box'][:] >= 0
+        image_index = np.where(split_mask)[0]
 
-    image_index = np.where(split_mask)[0]
-    # else:
-    #     image_index = np.where(split_mask)[0]
-    #     if num_im > -1:
-    #         image_index = image_index[:num_im]
-    #     if num_val_im > 0:
-    #         if split == 'val':
-    #             image_index = image_index[:num_val_im]
-    #         elif split == 'train':
-    #             image_index = image_index[num_val_im:]
 
     split_mask = np.zeros_like(data_split).astype(bool)
     split_mask[image_index] = True
