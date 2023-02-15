@@ -38,10 +38,12 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
     debug_print(logger, 'prepare training')
     model = build_detection_model(cfg) 
     debug_print(logger, 'end model construction')
-
+    use_wandb = True
     # get run name for logger
     if use_wandb:
         run_name = cfg.OUTPUT_DIR.split('/')[-1]
+        if distributed:
+            wandb.init(project="scene-graph-benchmark", entity="maelic", group="DDP", name=run_name, config=cfg)
         wandb.init(project="scene-graph-benchmark", entity="maelic", name=run_name, config=cfg)
 
     # modules that should be always set in eval mode
@@ -283,6 +285,14 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     # VG has only one val dataset
     dataset_result = val_result[0]
     if distributed:
+        gathered_result = all_gather(torch.tensor(dataset_result).cpu())
+        gathered_result = [t.view(-1) for t in gathered_result]
+        print(gathered_result)
+        # gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
+        # valid_result = gathered_result[gathered_result>=0]
+        # val_result = float(valid_result.mean())
+        # del gathered_result, valid_result
+        # torch.cuda.empty_cache()
         for k1, v1 in dataset_result.items():
             for k2, v2 in v1.items():
                 dataset_result[k1][k2] = torch.distributed.all_reduce(torch.tensor(np.mean(v2)).to(device).unsqueeze(0)).item() / torch.distributed.get_world_size()
@@ -292,13 +302,7 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
                 dataset_result[k1][k2] = np.mean(v2)
 
     # support for multi gpu distributed testing
-    # gathered_result = all_gather(torch.tensor(dataset_result).cpu())
-    # gathered_result = [t.view(-1) for t in gathered_result]
-    # gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
-    # valid_result = gathered_result[gathered_result>=0]
-    # val_result = float(valid_result.mean())
-    # del gathered_result, valid_result
-    # torch.cuda.empty_cache()
+   
     return dataset_result
 
 def run_test(cfg, model, distributed, logger):
