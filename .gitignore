@@ -16,6 +16,7 @@ dist/
 checkpoints/
 logs/
 wandb/
+TRAINING/
 
 # dataset
 datasets/
