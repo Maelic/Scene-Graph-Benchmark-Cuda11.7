@@ -7,7 +7,7 @@ import torch
 from maskrcnn_benchmark.utils.imports import import_file
 
 
-def align_and_update_state_dicts(model_state_dict, loaded_state_dict, load_mapping):
+def align_and_update_state_dicts(model_state_dict, loaded_state_dict, load_mapping, verbose=False):
     """
     Strategy: suppose that the models that we will create will have prefixes appended
     to each of its keys, for example due to an extra level of nesting that the original
@@ -82,13 +82,13 @@ def strip_prefix_if_present(state_dict, prefix):
     return stripped_state_dict
 
 
-def load_state_dict(model, loaded_state_dict, load_mapping):
+def load_state_dict(model, loaded_state_dict, load_mapping, verbose=False):
     model_state_dict = model.state_dict()
     # if the state_dict comes from a model that was wrapped in a
     # DataParallel or DistributedDataParallel during serialization,
     # remove the "module" prefix before performing the matching
     loaded_state_dict = strip_prefix_if_present(loaded_state_dict, prefix="module.")
-    align_and_update_state_dicts(model_state_dict, loaded_state_dict, load_mapping)
+    align_and_update_state_dicts(model_state_dict, loaded_state_dict, load_mapping, verbose)
 
     # use strict loading
     model.load_state_dict(model_state_dict)

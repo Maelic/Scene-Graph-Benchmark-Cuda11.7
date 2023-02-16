@@ -58,7 +58,7 @@ class TestCheckpointer(unittest.TestCase):
                     fresh_checkpointer.get_checkpoint_file(),
                     os.path.join(f, "checkpoint_file.pth"),
                 )
-                _ = fresh_checkpointer.load()
+                _ = fresh_checkpointer.load(verbose=True)
 
             for trained_p, loaded_p in zip(
                 trained_model.parameters(), fresh_model.parameters()
@@ -106,7 +106,7 @@ class TestCheckpointer(unittest.TestCase):
             if add_data_parallel:
                 model = nn.DataParallel(model)
 
-            load_state_dict(model, state_dict)
+            load_state_dict(model, state_dict, verbose=True)
             for loaded, stored in zip(model.state_dict().values(), state_dict.values()):
                 # different tensor references
                 self.assertFalse(id(loaded) == id(stored))

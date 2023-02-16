@@ -14,9 +14,6 @@ import datetime
 import numpy as np
 
 import torch
-from torch.nn.utils import clip_grad_norm_
-
-import wandb
 
 from maskrcnn_benchmark.config import cfg
 from maskrcnn_benchmark.data import make_data_loader
@@ -29,25 +26,22 @@ from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.checkpoint import clip_grad_norm
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
 from maskrcnn_benchmark.utils.comm import synchronize, get_rank, all_gather
-from maskrcnn_benchmark.utils.imports import import_file
 from maskrcnn_benchmark.utils.logger import setup_logger, debug_print
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
-from maskrcnn_benchmark.utils.metric_logger import (MetricLogger, TensorboardLogger)
-
-# See if we can use apex.DistributedDataParallel instead of the torch default,
-# and enable mixed-precision via apex.amp
-try:
-    from apex import amp
-except ImportError:
-    raise ImportError('Use APEX for multi-precision via apex.amp')
+from maskrcnn_benchmark.utils.metric_logger import MetricLogger
 
 def train(cfg, local_rank, distributed, logger, use_wandb):
-    debug_print(logger, 'prepare training')
+    
+    best_epoch = 0
+    best_metric = 0.0
+
+    debug_print(logger, 'Prepare training')
     model = build_detection_model(cfg) 
-    debug_print(logger, 'end model construction')
-    use_wandb = True
+    debug_print(logger, 'End model construction')
+
     # get run name for logger
     if use_wandb:
+        import wandb
         run_name = cfg.OUTPUT_DIR.split('/')[-1]
         if distributed:
             wandb.init(project="scene-graph-benchmark", entity="maelic", group="DDP", name=run_name, config=cfg)
@@ -70,9 +64,9 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
     load_mapping = {"roi_heads.relation.box_feature_extractor" : "roi_heads.box.feature_extractor",
                     "roi_heads.relation.union_feature_extractor.feature_extractor" : "roi_heads.box.feature_extractor"}
     
-    # if cfg.MODEL.ATTRIBUTE_ON:
-    #     load_mapping["roi_heads.relation.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
-    #     load_mapping["roi_heads.relation.union_feature_extractor.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
+    if cfg.MODEL.ATTRIBUTE_ON:
+        load_mapping["roi_heads.relation.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
+        load_mapping["roi_heads.relation.union_feature_extractor.att_feature_extractor"] = "roi_heads.attribute.feature_extractor"
 
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
@@ -82,10 +76,10 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
     optimizer = make_optimizer(cfg, model, logger, slow_heads=slow_heads, slow_ratio=10.0, rl_factor=float(num_batch))
     scheduler = make_lr_scheduler(cfg, optimizer, logger)
     debug_print(logger, 'end optimizer and shcedule')
+
     # Initialize mixed-precision training
-    use_mixed_precision = cfg.DTYPE == "float16"
-    amp_opt_level = 'O1' if use_mixed_precision else 'O0'
-    model, optimizer = amp.initialize(model, optimizer, opt_level=amp_opt_level)
+    use_amp = True if cfg.DTYPE == "float16" else False
+    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(
@@ -127,19 +121,11 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
     debug_print(logger, 'end dataloader')
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD
 
-
-
     if cfg.SOLVER.PRE_VAL:
         logger.info("Validate before training")
         run_val(cfg, model, val_data_loaders, distributed, logger, device=device)
 
-    if use_tensorboard:
-        meters = TensorboardLogger(
-            log_dir=cfg.TENSORBOARD_EXPERIMENT,
-            start_iter=arguments['iteration'],
-            delimiter="  ")
-    else:
-        meters = MetricLogger(delimiter="  ")
+    meters = MetricLogger(delimiter="  ")
 
     logger.info("Start training")
     max_iter = len(train_data_loader)
@@ -234,10 +220,11 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
             logger.info("Start validating")
             val_result = run_val(cfg, model, val_data_loaders, distributed, logger)
-            mean_recall = float(np.mean(list(val_result['predcls_mean_recall'].values())))
-            logger.info("Validation Result, Average mR@K: %.4f" % mean_recall)
             mode = assert_mode(cfg)
             metrics = val_result[mode+'_mean_recall']
+            mean_recall = float(np.mean(list(metrics.values())))
+            logger.info("Validation Result, Average mR@K: %.4f" % mean_recall)
+            
             if use_wandb:
                 for k, v in metrics.items():
                     wandb.log({f'mR@{k}': v}, step=iteration)            

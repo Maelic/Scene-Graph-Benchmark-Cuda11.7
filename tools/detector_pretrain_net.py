@@ -12,8 +12,6 @@ import os
 import time
 import datetime
 
-import wandb
-
 import torch
 from maskrcnn_benchmark.config import cfg
 from maskrcnn_benchmark.data import make_data_loader
@@ -30,21 +28,11 @@ from maskrcnn_benchmark.utils.logger import setup_logger
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
 from maskrcnn_benchmark.utils.metric_logger import MetricLogger
 
+import wandb
 
-# See if we can use apex.DistributedDataParallel instead of the torch default,
-# and enable mixed-precision via apex.amp
-try:
-    from apex import amp
-except ImportError:
-    raise ImportError('Use APEX for multi-precision via apex.amp')
-
+wandb.init(project="faster-rcnn-sgg", entity="maelic")
 
 def train(cfg, local_rank, distributed, logger):
-
-    # get run name for logger
-    run_name = cfg.OUTPUT_DIR.split('/')[-1]
-    wandb.init(project="scene-graph-benchmark", entity="maelic", name=run_name, config=cfg)
-
     model = build_detection_model(cfg)
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
@@ -53,9 +41,8 @@ def train(cfg, local_rank, distributed, logger):
     scheduler = make_lr_scheduler(cfg, optimizer)
 
     # Initialize mixed-precision training
-    use_mixed_precision = cfg.DTYPE == "float16"
-    amp_opt_level = 'O1' if use_mixed_precision else 'O0'
-    model, optimizer = amp.initialize(model, optimizer, opt_level=amp_opt_level)
+    use_amp = True if cfg.DTYPE == "float16" else False
+    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(
@@ -101,7 +88,10 @@ def train(cfg, local_rank, distributed, logger):
     start_training_time = time.time()
     end = time.time()
 
+    val_result = 0
+
     for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
+
         model.train()
         
         if any(len(target) < 1 for target in targets):
@@ -111,14 +101,18 @@ def train(cfg, local_rank, distributed, logger):
         iteration = iteration + 1
         arguments["iteration"] = iteration
 
-        scheduler.step()
+        # Note: If mixed precision is not used, this ends up doing nothing
+        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
+            images = images.to(device)
+            targets = [target.to(device) for target in targets]
 
-        images = images.to(device)
-        targets = [target.to(device) for target in targets]
+            loss_dict = model(images, targets)
 
-        loss_dict = model(images, targets)
+            losses = sum(loss for loss in loss_dict.values())
 
-        losses = sum(loss for loss in loss_dict.values())
+        scaler.scale(losses).backward()
+        scaler.step(optimizer)
+        scaler.update()
 
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = reduce_loss_dict(loss_dict)
@@ -126,11 +120,9 @@ def train(cfg, local_rank, distributed, logger):
         meters.update(loss=losses_reduced, **loss_dict_reduced)
 
         optimizer.zero_grad()
-        # Note: If mixed precision is not used, this ends up doing nothing
-        # Otherwise apply loss scaling for mixed-precision recipe
-        with amp.scale_loss(losses, optimizer) as scaled_losses:
-            scaled_losses.backward()
+
         optimizer.step()
+        scheduler.step()
 
         batch_time = time.time() - end
         end = time.time()
@@ -160,8 +152,8 @@ def train(cfg, local_rank, distributed, logger):
 
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
             logger.info("Start validating")
-            res = run_val(cfg, model, val_data_loaders, distributed)
-            wandb.log({"mAp", res})
+            val_result = run_val(cfg, model, val_data_loaders, distributed)
+            wandb.log({"mAp": val_result})
 
         if iteration % checkpoint_period == 0:
             checkpointer.save("model_{:07d}".format(iteration), **arguments)
@@ -183,22 +175,15 @@ def train(cfg, local_rank, distributed, logger):
 
 
 def run_val(cfg, model, val_data_loaders, distributed):
+    results = []
     if distributed:
         model = model.module
     torch.cuda.empty_cache()  # TODO check if it helps
     iou_types = ("bbox",)
-    if cfg.MODEL.MASK_ON:
-        iou_types = iou_types + ("segm",)
-    if cfg.MODEL.KEYPOINT_ON:
-        iou_types = iou_types + ("keypoints",)
-    if cfg.MODEL.RELATION_ON:
-        iou_types = iou_types + ("relations", )
-    # if cfg.MODEL.ATTRIBUTE_ON:
-    #     iou_types = iou_types + ("attributes", )
         
     dataset_names = cfg.DATASETS.VAL
     for dataset_name, val_data_loader in zip(dataset_names, val_data_loaders):
-        inference(
+        dataset_result = inference(
             cfg,
             model,
             val_data_loader,
@@ -211,25 +196,23 @@ def run_val(cfg, model, val_data_loaders, distributed):
             output_folder=None,
         )
         synchronize()
+        results.append(dataset_result)
 
-    if is_main_process(): 
-        map_results, raw_results = results[0]
-        bbox_map = map_results.results["bbox"]['AP']
-    return bbox_map
+    gathered_result = all_gather(torch.tensor(dataset_result).cpu())
+    gathered_result = [t.view(-1) for t in gathered_result]
+    gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
+    valid_result = gathered_result[gathered_result>=0]
+    val_result = float(valid_result.mean())
+    del gathered_result, valid_result
+    torch.cuda.empty_cache()
+    return val_result
 
 def run_test(cfg, model, distributed):
     if distributed:
         model = model.module
     torch.cuda.empty_cache()  # TODO check if it helps
     iou_types = ("bbox",)
-    if cfg.MODEL.MASK_ON:
-        iou_types = iou_types + ("segm",)
-    if cfg.MODEL.KEYPOINT_ON:
-        iou_types = iou_types + ("keypoints",)
-    if cfg.MODEL.RELATION_ON:
-        iou_types = iou_types + ("relations", )
-    # if cfg.MODEL.ATTRIBUTE_ON:
-    #     iou_types = iou_types + ("attributes", )
+
     output_folders = [None] * len(cfg.DATASETS.TEST)
     dataset_names = cfg.DATASETS.TEST
     if cfg.OUTPUT_DIR:
