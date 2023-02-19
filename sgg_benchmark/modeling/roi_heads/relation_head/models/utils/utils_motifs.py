@@ -1,7 +1,6 @@
 import array
 import os
 import zipfile
-import itertools
 import six
 import torch
 import numpy as np
@@ -9,7 +8,6 @@ from six.moves.urllib.request import urlretrieve
 from tqdm import tqdm
 import sys
 from sgg_benchmark.modeling.utils import cat
-from .utils_relation import nms_overlaps
 
 def normalize_sigmoid_logits(orig_logits):
     orig_logits = torch.sigmoid(orig_logits)

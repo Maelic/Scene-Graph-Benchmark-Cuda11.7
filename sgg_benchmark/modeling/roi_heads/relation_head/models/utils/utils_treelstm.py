@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import numpy as np
-
 from .utils_motifs import get_dropout_mask
 from .utils_relation import block_orthogonal
 

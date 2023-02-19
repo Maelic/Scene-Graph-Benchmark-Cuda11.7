@@ -3,8 +3,7 @@ Based on the implementation of https://github.com/jadore801120/attention-is-all-
 """
 import torch
 import torch.nn as nn
-from sgg_benchmark.modeling.roi_heads.relation_head.models.model_transformer import ScaledDotProductAttention,\
-    MultiHeadAttention, PositionwiseFeedForward
+from sgg_benchmark.modeling.roi_heads.relation_head.models.model_transformer import MultiHeadAttention, PositionwiseFeedForward
 
 class Single_Att_Layer(nn.Module):
     ''' Compose with two layers '''

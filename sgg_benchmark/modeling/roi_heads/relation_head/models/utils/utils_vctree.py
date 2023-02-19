@@ -1,18 +1,5 @@
-import array
-import os
-import zipfile
-import itertools
-import six
-from six.moves.urllib.request import urlretrieve
-from tqdm import tqdm
-import sys
-from sgg_benchmark.modeling.utils import cat
-
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-
 
 def generate_forest(pair_scores, proposals, mode):
     """

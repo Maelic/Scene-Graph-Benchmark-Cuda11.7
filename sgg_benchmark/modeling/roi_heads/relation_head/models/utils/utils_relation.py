@@ -1,17 +1,8 @@
-import array
-import os
-import zipfile
 import itertools
-import six
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from six.moves.urllib.request import urlretrieve
-from tqdm import tqdm
-import sys
-from sgg_benchmark.modeling.utils import cat
-
 
 def get_box_info(boxes, need_norm=True, proposal=None):
     """

@@ -8,18 +8,14 @@ from sgg_benchmark.modeling.utils import cat
 from models.model_vtranse import VTransEFeature
 from models.model_vctree import VCTreeLSTMContext
 from models.model_motifs import LSTMContext, FrequencyBias
-from models.model_motifs_with_attribute import AttributeLSTMContext
 from models.model_transformer import TransformerContext
-from SHA_GCL_extra.kl_divergence import KL_divergence
+from models.utils.utils_gcl import KL_divergence, FrequencyBias_GCL, generate_num_stage_vector, generate_sample_rate_vector, generate_current_sequence_for_bias, get_current_predicate_idx
 from models.model_Hybrid_Attention import SHA_Context
 from models.model_Cross_Attention import CA_Context
-from models.utils_relation import layer_init
+from models.utils.utils_relation import layer_init
 from sgg_benchmark.data import get_dataset_statistics
 
-from SHA_GCL_extra.utils_funcion import FrequencyBias_GCL
-from SHA_GCL_extra.extra_function_utils import generate_num_stage_vector, generate_sample_rate_vector, \
-    generate_current_sequence_for_bias, get_current_predicate_idx
-from SHA_GCL_extra.group_chosen_function import get_group_splits
+from sgg_benchmark.utils.gcl_group_split import get_group_splits
 import random
 
 @registry.ROI_RELATION_PREDICTOR.register("TransLike_GCL")
