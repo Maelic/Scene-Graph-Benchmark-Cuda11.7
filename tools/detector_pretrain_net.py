@@ -5,7 +5,7 @@ Basic training script for PyTorch
 
 # Set up custom environment before nearly anything else is imported
 # NOTE: this should be the first import (no not reorder)
-from maskrcnn_benchmark.utils.env import setup_environment  # noqa F401 isort:skip
+from sgg_benchmark.utils.env import setup_environment  # noqa F401 isort:skip
 
 import argparse
 import os
@@ -13,20 +13,20 @@ import time
 import datetime
 
 import torch
-from maskrcnn_benchmark.config import cfg
-from maskrcnn_benchmark.data import make_data_loader
-from maskrcnn_benchmark.solver import make_lr_scheduler
-from maskrcnn_benchmark.solver import make_optimizer
-from maskrcnn_benchmark.engine.trainer import reduce_loss_dict
-from maskrcnn_benchmark.engine.inference import inference
-from maskrcnn_benchmark.modeling.detector import build_detection_model
-from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
-from maskrcnn_benchmark.utils.collect_env import collect_env_info
-from maskrcnn_benchmark.utils.comm import synchronize, get_rank, all_gather
-from maskrcnn_benchmark.utils.imports import import_file
-from maskrcnn_benchmark.utils.logger import setup_logger
-from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
-from maskrcnn_benchmark.utils.metric_logger import MetricLogger
+from sgg_benchmark.config import cfg
+from sgg_benchmark.data import make_data_loader
+from sgg_benchmark.solver import make_lr_scheduler
+from sgg_benchmark.solver import make_optimizer
+from sgg_benchmark.engine.trainer import reduce_loss_dict
+from sgg_benchmark.engine.inference import inference
+from sgg_benchmark.modeling.detector import build_detection_model
+from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
+from sgg_benchmark.utils.collect_env import collect_env_info
+from sgg_benchmark.utils.comm import synchronize, get_rank, all_gather
+from sgg_benchmark.utils.imports import import_file
+from sgg_benchmark.utils.logger import setup_logger
+from sgg_benchmark.utils.miscellaneous import mkdir, save_config
+from sgg_benchmark.utils.metric_logger import MetricLogger
 
 import wandb
 

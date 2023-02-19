@@ -2,7 +2,7 @@
 import argparse
 import cv2
 
-from maskrcnn_benchmark.config import cfg
+from sgg_benchmark.config import cfg
 from predictor import COCODemo
 
 import time
