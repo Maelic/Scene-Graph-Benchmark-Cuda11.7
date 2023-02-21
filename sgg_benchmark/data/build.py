@@ -208,7 +208,7 @@ def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0, data
     aspect_grouping = [1] if cfg.DATALOADER.ASPECT_RATIO_GROUPING else []
 
     paths_catalog = import_file(
-        "maskrcnn_benchmark.config.paths_catalog", cfg.PATHS_CATALOG, True
+        "sgg_benchmark.config.paths_catalog", cfg.PATHS_CATALOG, True
     )
     DatasetCatalog = paths_catalog.DatasetCatalog
     if dataset_to_test == 'train':

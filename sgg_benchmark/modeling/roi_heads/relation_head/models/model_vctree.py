@@ -1,14 +1,13 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 from sgg_benchmark.modeling import registry
-import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
 from sgg_benchmark.modeling.utils import cat
-from utils.utils_motifs import obj_edge_vectors, to_onehot, get_dropout_mask, encode_box_info
-from utils.utils_vctree import generate_forest, arbForest_to_biForest, get_overlap_info
-from utils.utils_treelstm import TreeLSTM_IO, MultiLayer_BTreeLSTM, BiTreeLSTM_Backward, BiTreeLSTM_Foreward
-from utils.utils_relation import layer_init
+from .utils.utils_motifs import obj_edge_vectors, to_onehot, get_dropout_mask, encode_box_info
+from .utils.utils_vctree import generate_forest, arbForest_to_biForest, get_overlap_info
+from .utils.utils_treelstm import TreeLSTM_IO, MultiLayer_BTreeLSTM, BiTreeLSTM_Backward, BiTreeLSTM_Foreward
+from .utils.utils_relation import layer_init
 
 
 class DecoderTreeLSTM(torch.nn.Module):

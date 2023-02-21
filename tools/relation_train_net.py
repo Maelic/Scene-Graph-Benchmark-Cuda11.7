@@ -75,6 +75,9 @@ def train(cfg, logger, args):
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
 
+    if args['task']:
+        assert_mode(cfg, args['task'])
+
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
     num_batch = cfg.SOLVER.IMS_PER_BATCH
     optimizer = make_optimizer(cfg, model, logger, slow_heads=slow_heads, slow_ratio=10.0, rl_factor=float(num_batch))
@@ -372,14 +375,13 @@ def run_test(cfg, model, distributed, logger):
         )
         synchronize()
 
-def assert_mode(cfg):
+def assert_mode(cfg, task):
     cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = False
     cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL = False
-    if cfg.TASK == "sgcls" or cfg.TASK == "predcls":
+    if task == "sgcls" or task == "predcls":
         cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = True
-    if cfg.TASK == "predcls":
+    if task == "predcls":
         cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL = True
-    return cfg
 
 def main():
     args = default_argument_parser()
@@ -407,7 +409,7 @@ def main():
     logger.debug(args)
 
     logger.info("Collecting environment info...")
-    logger_step(logger, "\n" + tqdm(collect_env_info()))
+    logger_step(logger, "\n" + collect_env_info())
 
     logger.info("Loaded configuration file {}".format(args.config_file))
     with open(args.config_file, "r") as cf:

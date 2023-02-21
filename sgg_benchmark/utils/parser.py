@@ -15,18 +15,15 @@ def default_argument_parser(epilog="PyTorch Relation Detection Training"):
         default="",
         metavar="FILE",
         help="path to config file",
-        required=True
     )
     parser.add_argument("--local_rank", type=int, default=0)
 
     parser.add_argument("--skip-test",
-        type=bool,
         dest="skip_test",
         help="Do not test the final model",
         action="store_true"
     )
     parser.add_argument("--use-wandb",
-        type=bool,
         dest="use_wandb",
         help="Use wandb logger (Requires wandb installed)",
         action="store_true",
@@ -34,23 +31,20 @@ def default_argument_parser(epilog="PyTorch Relation Detection Training"):
     )
 
     parser.add_argument("--verbose",
-        type=bool,
         dest="verbose",
         help="Print more information",
         action="store_true",
         default=False
     )
 
-    parser.add_argument("--task",
+    parser.add_argument("--task", # If no specified, default value from MODEL.ROI_RELATION_HEAD.USE_GT_BOX and MODEL.ROI_RELATION_HEAD.USE_GT_LABEL will be used
         type=str,
         dest="task",
-        help="Chose between precls, sgcls or sgdet",
-        default="precls",
-        required=True
+        help="Chose between predcls, sgcls or sgdet",
+        choices=['predcls', 'sgcls', 'sgdet'], 
     )
 
     parser.add_argument("--save_best",
-        type=bool,
         dest="save_best",
         action="store_true",
         help="Only save the best epoch to save space",
@@ -62,4 +56,5 @@ def default_argument_parser(epilog="PyTorch Relation Detection Training"):
         nargs=argparse.REMAINDER,
     )
 
-    return parser
+    return parser.parse_args()
+

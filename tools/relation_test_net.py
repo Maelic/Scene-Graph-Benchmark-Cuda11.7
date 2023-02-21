@@ -14,37 +14,24 @@ from sgg_benchmark.modeling.detector import build_detection_model
 from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
 from sgg_benchmark.utils.collect_env import collect_env_info
 from sgg_benchmark.utils.comm import synchronize, get_rank
-from sgg_benchmark.utils.logger import setup_logger
+from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir
+from sgg_benchmark.utils.parser import default_argument_parser
+
+def assert_mode(cfg, task):
+    cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = False
+    cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL = False
+    if task == "sgcls" or task == "predcls":
+        cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = True
+    if task == "predcls":
+        cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL = True
 
 def main():
-    parser = argparse.ArgumentParser(description="PyTorch Object Detection Inference")
-    parser.add_argument(
-        "--config-file",
-        default="/private/home/fmassa/github/detectron.pytorch_v2/configs/e2e_faster_rcnn_R_50_C4_1x_caffe2.yaml",
-        metavar="FILE",
-        help="path to config file",
-    )
-    parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument(
-        "opts",
-        help="Modify config options using the command-line",
-        default=None,
-        nargs=argparse.REMAINDER,
-    )
-
-    parser.add_argument(
-        "--amp",
-        help="Mixed precision training",
-        default=False,
-        action="store_true",
-    )
-
-    args = parser.parse_args()
+    args = default_argument_parser()
 
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
     distributed = num_gpus > 1
-
+    
     if distributed:
         torch.cuda.set_device(args.local_rank)
         torch.distributed.init_process_group(
@@ -54,35 +41,41 @@ def main():
 
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
+    if args.task:
+        assert_mode(cfg, args.task)
+
     cfg.freeze()
 
-    save_dir = ""
-    logger = setup_logger("maskrcnn_benchmark", save_dir, get_rank())
-    logger.info("Using {} GPUs".format(num_gpus))
-    logger.info(cfg)
+    output_dir = cfg.OUTPUT_DIR
 
-    logger.info("Collecting env info (might take some time)")
-    logger.info("\n" + collect_env_info())
+    save_dir = ""
+    logger = setup_logger("sgg_benchmark", output_dir, get_rank(), verbose=args.verbose, steps=True)
+    logger.info("Using {} GPUs".format(num_gpus))
+    logger.debug(args)
+
+    logger_step(logger, "Collecting environment info...")
+    logger.debug("\n" + collect_env_info())
+
+    logger.info("Running with config:\n{}".format(cfg))
 
     model = build_detection_model(cfg)
     model.to(cfg.MODEL.DEVICE)
 
+    enable_inplace_relu(model)
+
     # Initialize mixed-precision if necessary
     use_amp = True if cfg.DTYPE == "float16" or args.amp else False
 
-    output_dir = cfg.OUTPUT_DIR
     checkpointer = DetectronCheckpointer(cfg, model, save_dir=output_dir)
     _ = checkpointer.load(cfg.MODEL.WEIGHT)
 
     iou_types = ("bbox",)
-    if cfg.MODEL.MASK_ON:
-        iou_types = iou_types + ("segm",)
-    if cfg.MODEL.KEYPOINT_ON:
-        iou_types = iou_types + ("keypoints",)
     if cfg.MODEL.RELATION_ON:
+        logger.info("Evaluate relations")
         iou_types = iou_types + ("relations", )
-    # if cfg.MODEL.ATTRIBUTE_ON:
-    #     iou_types = iou_types + ("attributes", )
+    if cfg.MODEL.ATTRIBUTE_ON:
+        logger.info("Evaluate attributes")
+        iou_types = iou_types + ("attributes", )
     output_folders = [None] * len(cfg.DATASETS.TEST)
 
     dataset_names = cfg.DATASETS.TEST
@@ -116,8 +109,16 @@ def main():
                 expected_results=cfg.TEST.EXPECTED_RESULTS,
                 expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
                 output_folder=output_folder,
+                logger=logger,
             )
         synchronize()
+
+def enable_inplace_relu(model):
+    for name, module in model.named_children():
+        if isinstance(module, torch.nn.ReLU):
+            setattr(model, name, torch.nn.ReLU(inplace=True))
+        else:
+            enable_inplace_relu(module)
 
 if __name__ == "__main__":
     main()

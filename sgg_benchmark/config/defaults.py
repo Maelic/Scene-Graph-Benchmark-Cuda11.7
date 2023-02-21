@@ -36,7 +36,6 @@ _C.MODEL.CLS_AGNOSTIC_BBOX_REG = False
 # the path in paths_catalog. Else, it will use it as the specified absolute
 # path
 _C.MODEL.WEIGHT = ""
-_C.TASK = "predcls" # predcls, sgcls or sgdet
 
 # checkpoint of detector, for relation prediction
 _C.MODEL.PRETRAINED_DETECTOR_CKPT = ""
@@ -79,7 +78,7 @@ _C.DATASETS.TRAIN = ()
 _C.DATASETS.VAL = ()
 # List of the dataset names for testing, as present in paths_catalog.py
 _C.DATASETS.TEST = ()
-_C.DATASETS.TO_TEST = []
+_C.DATASETS.TO_TEST = ""
 
 # -----------------------------------------------------------------------------
 # DataLoader

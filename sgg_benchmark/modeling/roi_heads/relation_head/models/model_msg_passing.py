@@ -7,7 +7,7 @@ from torch.nn.utils.rnn import PackedSequence
 from torch.nn import functional as F
 from sgg_benchmark.modeling.utils import cat
 from sgg_benchmark.modeling.make_layers import make_fc
-from utils.utils_motifs import to_onehot
+from .utils.utils_motifs import to_onehot
 
 class IMPContext(nn.Module):
     def __init__(self, config, num_obj, num_rel, in_channels, hidden_dim=512, num_iter=3):

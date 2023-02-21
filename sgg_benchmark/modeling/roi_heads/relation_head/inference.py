@@ -5,7 +5,7 @@ from torch import nn
 
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.modeling.box_coder import BoxCoder
-from models.utils.utils_relation import obj_prediction_nms
+from .models.utils.utils_relation import obj_prediction_nms
 
 class PostProcessor(nn.Module):
     """

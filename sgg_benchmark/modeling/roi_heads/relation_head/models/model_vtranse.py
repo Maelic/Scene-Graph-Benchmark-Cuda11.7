@@ -6,7 +6,7 @@ from torch import nn
 from torch.nn import functional as F
 from sgg_benchmark.modeling.utils import cat
 from sgg_benchmark.modeling.make_layers import make_fc
-from utils.utils_motifs import obj_edge_vectors, encode_box_info
+from .utils.utils_motifs import obj_edge_vectors, encode_box_info
 
 class VTransEFeature(nn.Module):
     def __init__(self, config, obj_classes, rel_classes, in_channels):

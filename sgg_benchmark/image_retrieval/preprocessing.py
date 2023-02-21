@@ -18,26 +18,11 @@ import torch.utils.data as data
 from torch.nn.utils import weight_norm
 from tqdm import tqdm
 
-from sgg_benchmark.config import cfg
-from sgg_benchmark.data import make_data_loader
-from sgg_benchmark.solver import make_lr_scheduler
-from sgg_benchmark.solver import make_optimizer
-from sgg_benchmark.engine.trainer import reduce_loss_dict
-from sgg_benchmark.engine.inference import inference
-from sgg_benchmark.modeling.detector import build_detection_model
-from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
-from sgg_benchmark.utils.checkpoint import clip_grad_norm
-from sgg_benchmark.utils.collect_env import collect_env_info
-from sgg_benchmark.utils.comm import synchronize, get_rank, all_gather
-from sgg_benchmark.utils.imports import import_file
-from sgg_benchmark.utils.logger import setup_logger, debug_print
-from sgg_benchmark.utils.miscellaneous import mkdir, save_config
-from sgg_benchmark.utils.metric_logger import MetricLogger
 from sgg_benchmark.config.paths_catalog import DatasetCatalog
 
 def preprocess_scene_graphs_output( detected_path, output_file_name):
     data_dir = DatasetCatalog.DATA_DIR
-    attrs = DatasetCatalog.DATASETS["VG_stanford_filtered_with_attribute"]
+    attrs = DatasetCatalog.DATASETS["VG150_connected_filtered"]
     cap_graph_file = os.path.join(data_dir, attrs["capgraphs_file"])
     vg_dict_file = os.path.join(data_dir, attrs["dict_file"])
     image_file = os.path.join(data_dir, attrs["image_file"])

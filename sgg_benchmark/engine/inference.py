@@ -101,7 +101,12 @@ def inference(
     if logger is None:
         logger = logging.getLogger("maskrcnn_benchmark.inference")
     dataset = data_loader.dataset
+
     logger.info("Start evaluation on {} dataset({} images).".format(dataset_name, len(dataset)))
+    # get dataset name
+    p = dataset_name.rfind("_")
+    name, split = dataset_name[:p], dataset_name[p+1:]
+
     total_timer = Timer()
     inference_timer = Timer()
     total_timer.tic()
@@ -152,6 +157,7 @@ def inference(
 
     return evaluate(cfg=cfg,
                     dataset=dataset,
+                    dataset_name=name,
                     predictions=predictions,
                     output_folder=output_folder,
                     logger=logger,

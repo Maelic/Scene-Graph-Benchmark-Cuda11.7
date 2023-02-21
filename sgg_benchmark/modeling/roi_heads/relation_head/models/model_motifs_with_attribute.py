@@ -6,7 +6,8 @@ from torch import nn
 from torch.nn.utils.rnn import PackedSequence
 from torch.nn import functional as F
 from sgg_benchmark.modeling.utils import cat
-from utils.utils_motifs import obj_edge_vectors, center_x, sort_by_score, to_onehot, get_dropout_mask, nms_overlaps, encode_box_info, generate_attributes_target, normalize_sigmoid_logits
+from .utils.utils_motifs import obj_edge_vectors, center_x, sort_by_score, to_onehot, get_dropout_mask, encode_box_info, generate_attributes_target, normalize_sigmoid_logits
+from .utils.utils_relation import nms_overlaps
 
 class AttributeDecoderRNN(nn.Module):
     def __init__(self, config, obj_classes, att_classes, embed_dim, inputs_dim, hidden_dim, rnn_drop):

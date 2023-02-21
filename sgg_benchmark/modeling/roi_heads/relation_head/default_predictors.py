@@ -6,13 +6,13 @@ from torch.nn import functional as F
 
 from sgg_benchmark.layers import Label_Smoothing_Regression
 from sgg_benchmark.modeling.utils import cat
-from models.model_msg_passing import IMPContext
-from models.model_vtranse import VTransEFeature
-from models.model_vctree import VCTreeLSTMContext
-from models.model_motifs import LSTMContext, FrequencyBias
-from models.model_motifs_with_attribute import AttributeLSTMContext
-from models.model_transformer import TransformerContext
-from models.utils.utils_relation import layer_init, get_box_info, get_box_pair_info
+from .models.model_msg_passing import IMPContext
+from .models.model_vtranse import VTransEFeature
+from .models.model_vctree import VCTreeLSTMContext
+from .models.model_motifs import LSTMContext, FrequencyBias
+from .models.model_motifs_with_attribute import AttributeLSTMContext
+from .models.model_transformer import TransformerContext
+from .models.utils.utils_relation import layer_init, get_box_info, get_box_pair_info
 from sgg_benchmark.data import get_dataset_statistics
 
 @registry.ROI_RELATION_PREDICTOR.register("TransformerPredictor")

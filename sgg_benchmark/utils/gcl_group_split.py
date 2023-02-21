@@ -1,7 +1,18 @@
+from sgg_benchmark.config.paths_catalog import DatasetCatalog
+import os
+import json
+
 # we rearrange the VG dataset, sort the relation classes in descending order (the original order is based on relation class names)
 predicate_new_order = [0, 10, 42, 43, 34, 28, 17, 19, 7, 29, 33, 18, 35, 32, 27, 50, 22, 44, 45, 25, 2, 9, 5, 15, 26, 23, 37, 48, 41, 6, 4, 1, 38, 21, 46, 30, 36, 47, 14, 49, 11, 16, 39, 13, 31, 40, 20, 24, 3, 12, 8]
 predicate_new_order_count = [3024465, 109355, 67144, 47326, 31347, 21748, 15300, 10011, 11059, 10764, 6712, 5086, 4810, 3757, 4260, 3167, 2273, 1829, 1603, 1413, 1225, 793, 809, 676, 352, 663, 752, 565, 504, 644, 601, 551, 460, 394, 379, 397, 429, 364, 333, 299, 270, 234, 171, 208, 163, 157, 151, 71, 114, 44, 4]
 predicate_new_order_name = ['__background__', 'on', 'has', 'wearing', 'of', 'in', 'near', 'behind', 'with', 'holding', 'above', 'sitting on', 'wears', 'under', 'riding', 'in front of', 'standing on', 'at', 'carrying', 'attached to', 'walking on', 'over', 'for', 'looking at', 'watching', 'hanging from', 'laying on', 'eating', 'and', 'belonging to', 'parked on', 'using', 'covering', 'between', 'along', 'covered in', 'part of', 'lying on', 'on back of', 'to', 'walking in', 'mounted on', 'across', 'against', 'from', 'growing on', 'painted on', 'playing', 'made of', 'says', 'flying in']
+
+def load_data_statistices(cfg):
+    data_dir = DatasetCatalog.DATA_DIR
+    attrs = DatasetCatalog.DATASETS["VG150_connected_filtered"]
+    vg_dict = json.load(os.path.join(data_dir, attrs["dict_file"]))
+
+
 
 def get_group_splits(Dataset_name, split_name):
     assert Dataset_name in ['VG', 'GQA_200']

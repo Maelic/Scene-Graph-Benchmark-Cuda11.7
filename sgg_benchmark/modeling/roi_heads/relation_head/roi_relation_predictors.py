@@ -3,8 +3,8 @@ import os
 from sgg_benchmark.modeling import registry
 from torch.nn import functional as F
 
-from default_predictors import *
-from GCL_predictors import *
+from .default_predictors import *
+from .GCL_predictors import *
 
 def make_roi_relation_predictorGCL(cfg, in_channels):
     import time

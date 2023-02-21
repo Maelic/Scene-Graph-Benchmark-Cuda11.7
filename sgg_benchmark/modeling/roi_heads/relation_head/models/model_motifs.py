@@ -6,8 +6,8 @@ from torch import nn
 from torch.nn.utils.rnn import PackedSequence
 from torch.nn import functional as F
 from sgg_benchmark.modeling.utils import cat
-from utils.utils_motifs import obj_edge_vectors, center_x, sort_by_score, to_onehot, get_dropout_mask, nms_overlaps, encode_box_info
-
+from .utils.utils_motifs import obj_edge_vectors, center_x, sort_by_score, to_onehot, get_dropout_mask, encode_box_info
+from .utils.utils_relation import nms_overlaps
 
 class FrequencyBias(nn.Module):
     """

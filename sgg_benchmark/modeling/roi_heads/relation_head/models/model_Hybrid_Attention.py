@@ -5,8 +5,9 @@ from torch import nn
 import torch.nn.functional as F
 import numpy as np
 from sgg_benchmark.modeling.utils import cat
-from utils.utils_co_attention import Self_Attention_Encoder, Cross_Attention_Encoder
-from utils.utils_motifs import obj_edge_vectors, to_onehot, nms_overlaps, encode_box_info
+from .utils.utils_co_attention import Self_Attention_Encoder, Cross_Attention_Encoder
+from .utils.utils_motifs import obj_edge_vectors, to_onehot, encode_box_info
+from .utils.utils_relation import nms_overlaps
 
 class Self_Attention_Cell(nn.Module):
     def __init__(self, config, hidden_dim=None):
