@@ -20,7 +20,10 @@ from sgg_benchmark.layers import (
 from sgg_benchmark.layers.misc import _NewEmptyTensorOp
 
 
-logger = logging.getLogger(__name__)
+try:
+    from loguru import logger
+except ImportError:
+    logger = logging.getLogger(__name__)
 
 
 def _py2_round(x):

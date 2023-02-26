@@ -24,12 +24,8 @@ class TransLike_GCL(nn.Module):
         super(TransLike_GCL, self).__init__()
         # load parameters
         self.config = config
-        if config.GLOBAL_SETTING.DATASET_CHOICE == 'VG':
-            self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.VG_NUM_CLASSES
-            self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.VG_NUM_CLASSES
-        elif config.GLOBAL_SETTING.DATASET_CHOICE == 'GQA_200':
-            self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.GQA_200_NUM_CLASSES
-            self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.GQA_200_NUM_CLASSES
+        self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
+        self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
 
         assert in_channels is not None
         num_inputs = in_channels
@@ -39,6 +35,8 @@ class TransLike_GCL(nn.Module):
         # load class dict
         statistics = get_dataset_statistics(config)
         obj_classes, rel_classes = statistics['obj_classes'], statistics['rel_classes']
+        predicate_new_order = statistics['predicate_new_order']
+        predicate_new_order_count = statistics['predicate_new_order_count']
         assert self.num_obj_cls == len(obj_classes)
         assert self.num_rel_cls == len(rel_classes)
         self.obj_classes = obj_classes
@@ -76,12 +74,13 @@ class TransLike_GCL(nn.Module):
         self.knowledge_loss_coefficient = config.GLOBAL_SETTING.GCL_SETTING.KNOWLEDGE_LOSS_COEFFICIENT
         # generate the auxiliary lists
         self.group_split_mode = config.GLOBAL_SETTING.GCL_SETTING.GROUP_SPLIT_MODE
-        num_of_group_element_list, predicate_stage_count = get_group_splits(config.GLOBAL_SETTING.DATASET_CHOICE, self.group_split_mode)
+        dataset_name = config.DATASETS.NAME
+        num_of_group_element_list, predicate_stage_count = get_group_splits(dataset_name, self.group_split_mode, predicate_new_order, predicate_new_order_count)
         self.max_group_element_number_list = generate_num_stage_vector(num_of_group_element_list)
         self.incre_idx_list, self.max_elemnt_list, self.group_matrix, self.kd_matrix = get_current_predicate_idx(
-            num_of_group_element_list, 0.1, config.GLOBAL_SETTING.DATASET_CHOICE)
-        self.sample_rate_matrix = generate_sample_rate_vector(config.GLOBAL_SETTING.DATASET_CHOICE, self.max_group_element_number_list)
-        self.bias_for_group_split = generate_current_sequence_for_bias(num_of_group_element_list, config.GLOBAL_SETTING.DATASET_CHOICE)
+            num_of_group_element_list, 0.1, sum(predicate_stage_count)+1)
+        self.sample_rate_matrix = generate_sample_rate_vector(self.max_group_element_number_list, predicate_new_order_count)
+        self.bias_for_group_split = generate_current_sequence_for_bias(num_of_group_element_list, sum(predicate_stage_count)+1)
 
         self.num_groups = len(self.max_elemnt_list)
         self.rel_compress_all, self.ctx_compress_all = self.generate_muti_networks(self.num_groups)
@@ -352,28 +351,26 @@ class TransLike_GCL(nn.Module):
         return classifer_all, compress_all
 
     def generate_multi_bias(self, config, statistics, num_cls):
-        self.freq_bias_1 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE, predicate_all_list=self.bias_for_group_split[0])
-        self.freq_bias_2 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE, predicate_all_list=self.bias_for_group_split[1])
-        self.freq_bias_3 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE, predicate_all_list=self.bias_for_group_split[2])
-        self.freq_bias_4 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE, predicate_all_list=self.bias_for_group_split[3])
+        self.freq_bias_1 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[0])
+        self.freq_bias_2 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[1])
+        self.freq_bias_3 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[2])
+        self.freq_bias_4 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[3])
         if num_cls < 4:
             exit('wrong num in multi_bias')
         elif num_cls == 4:
             freq_bias_all = [self.freq_bias_1, self.freq_bias_2, self.freq_bias_3, self.freq_bias_4]
         else:
-            self.freq_bias_5 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE, predicate_all_list=self.bias_for_group_split[4])
+            self.freq_bias_5 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[4])
             if num_cls == 5:
                 freq_bias_all = [self.freq_bias_1, self.freq_bias_2, self.freq_bias_3, self.freq_bias_4,
                                  self.freq_bias_5]
             else:
-                self.freq_bias_6 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE,
-                                                      predicate_all_list=self.bias_for_group_split[5])
+                self.freq_bias_6 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[5])
                 if num_cls == 6:
                     freq_bias_all = [self.freq_bias_1, self.freq_bias_2, self.freq_bias_3,
                                      self.freq_bias_4, self.freq_bias_5, self.freq_bias_6]
                 else:
-                    self.freq_bias_7 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE,
-                                                          predicate_all_list=self.bias_for_group_split[6])
+                    self.freq_bias_7 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[6])
                     freq_bias_all = [self.freq_bias_1, self.freq_bias_2, self.freq_bias_3,
                                      self.freq_bias_4, self.freq_bias_5, self.freq_bias_6, self.freq_bias_7]
                     if num_cls > 7:
@@ -386,12 +383,8 @@ class MotifsLikePredictor(nn.Module):
     def __init__(self, config, in_channels):
         super(MotifsLikePredictor, self).__init__()
         self.config = config
-        if config.GLOBAL_SETTING.DATASET_CHOICE == 'VG':
-            self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.VG_NUM_CLASSES
-            self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.VG_NUM_CLASSES
-        elif config.GLOBAL_SETTING.DATASET_CHOICE == 'GQA_200':
-            self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.GQA_200_NUM_CLASSES
-            self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.GQA_200_NUM_CLASSES
+        self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
+        self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
 
         assert in_channels is not None
         num_inputs = in_channels
@@ -502,12 +495,12 @@ class MotifsLike_GCL(nn.Module):
     def __init__(self, config, in_channels):
         super(MotifsLike_GCL, self).__init__()
         self.config = config
-        if config.GLOBAL_SETTING.DATASET_CHOICE == 'VG':
-            self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.VG_NUM_CLASSES
-            self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.VG_NUM_CLASSES
-        elif config.GLOBAL_SETTING.DATASET_CHOICE == 'GQA_200':
-            self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.GQA_200_NUM_CLASSES
-            self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.GQA_200_NUM_CLASSES
+        statistics = get_dataset_statistics(config)
+ 
+        self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
+        self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
+        predicate_new_order = statistics['predicate_new_order']
+        predicate_new_order_count = statistics['predicate_new_order_count']
 
         assert in_channels is not None
         num_inputs = in_channels
@@ -551,12 +544,13 @@ class MotifsLike_GCL(nn.Module):
         self.knowledge_loss_coefficient = config.GLOBAL_SETTING.GCL_SETTING.KNOWLEDGE_LOSS_COEFFICIENT
         # generate the auxiliary lists
         self.group_split_mode = config.GLOBAL_SETTING.GCL_SETTING.GROUP_SPLIT_MODE
-        num_of_group_element_list, predicate_stage_count = get_group_splits(config.GLOBAL_SETTING.DATASET_CHOICE, self.group_split_mode)
+        num_of_group_element_list, predicate_stage_count = get_group_splits(config.DATASETS.NAME, self.group_split_mode, predicate_new_order, predicate_new_order_count)
         self.max_group_element_number_list = generate_num_stage_vector(num_of_group_element_list)
         self.incre_idx_list, self.max_elemnt_list, self.group_matrix, self.kd_matrix = get_current_predicate_idx(
-            num_of_group_element_list, 0.1, config.GLOBAL_SETTING.DATASET_CHOICE)
-        self.sample_rate_matrix = generate_sample_rate_vector(config.GLOBAL_SETTING.DATASET_CHOICE, self.max_group_element_number_list)
-        self.bias_for_group_split = generate_current_sequence_for_bias(num_of_group_element_list, config.GLOBAL_SETTING.DATASET_CHOICE)
+            num_of_group_element_list, 0.1, sum(predicate_stage_count)+1)
+        self.sample_rate_matrix = generate_sample_rate_vector(self.max_group_element_number_list, predicate_new_order_count)
+        self.bias_for_group_split = generate_current_sequence_for_bias(num_of_group_element_list, sum(predicate_stage_count)+1)
+
 
         self.num_groups = len(self.max_elemnt_list)
         self.rel_classifer_all = self.generate_muti_networks(self.num_groups)
@@ -811,27 +805,27 @@ class MotifsLike_GCL(nn.Module):
         return classifer_all
 
     def generate_multi_bias(self, config, statistics, num_cls):
-        self.freq_bias_1 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE, predicate_all_list=self.bias_for_group_split[0])
-        self.freq_bias_2 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE, predicate_all_list=self.bias_for_group_split[1])
-        self.freq_bias_3 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE, predicate_all_list=self.bias_for_group_split[2])
-        self.freq_bias_4 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE, predicate_all_list=self.bias_for_group_split[3])
+        self.freq_bias_1 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[0])
+        self.freq_bias_2 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[1])
+        self.freq_bias_3 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[2])
+        self.freq_bias_4 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[3])
         if num_cls < 4:
             exit('wrong num in multi_bias')
         elif num_cls == 4:
             freq_bias_all = [self.freq_bias_1, self.freq_bias_2, self.freq_bias_3, self.freq_bias_4]
         else:
-            self.freq_bias_5 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE, predicate_all_list=self.bias_for_group_split[4])
+            self.freq_bias_5 = FrequencyBias_GCL(config, statistics, predicate_all_list=self.bias_for_group_split[4])
             if num_cls == 5:
                 freq_bias_all = [self.freq_bias_1, self.freq_bias_2, self.freq_bias_3, self.freq_bias_4,
                                  self.freq_bias_5]
             else:
-                self.freq_bias_6 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE,
+                self.freq_bias_6 = FrequencyBias_GCL(config, statistics,
                                                       predicate_all_list=self.bias_for_group_split[5])
                 if num_cls == 6:
                     freq_bias_all = [self.freq_bias_1, self.freq_bias_2, self.freq_bias_3,
                                      self.freq_bias_4, self.freq_bias_5, self.freq_bias_6]
                 else:
-                    self.freq_bias_7 = FrequencyBias_GCL(config, statistics, config.GLOBAL_SETTING.DATASET_CHOICE,
+                    self.freq_bias_7 = FrequencyBias_GCL(config, statistics,
                                                           predicate_all_list=self.bias_for_group_split[6])
                     freq_bias_all = [self.freq_bias_1, self.freq_bias_2, self.freq_bias_3,
                                      self.freq_bias_4, self.freq_bias_5, self.freq_bias_6, self.freq_bias_7]

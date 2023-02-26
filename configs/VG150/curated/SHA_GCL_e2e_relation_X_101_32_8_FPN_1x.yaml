@@ -42,8 +42,7 @@ MODEL:
     POOLER_SAMPLING_RATIO: 2
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
-    VG_NUM_CLASSES: 151                # 151 for VG, 201 for GQA
-    GQA_200_NUM_CLASSES: 201         # 151 for VG, 201 for GQA
+    NUM_CLASSES: 151                # 151 for VG, 201 for GQA
     MLP_HEAD_DIM: 4096
   ROI_ATTRIBUTE_HEAD:
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
@@ -59,9 +58,8 @@ MODEL:
     USE_GT_BOX: True
     USE_GT_OBJECT_LABEL: True
     REQUIRE_BOX_OVERLAP: False              # for sgdet, during training, only train pairs with overlap
-    ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
-    VG_NUM_CLASSES: 51                 # 51 for VG, 101 for GQA (not contain "to the left of" & "to the right of")
-    GQA_200_NUM_CLASSES: 101
+    ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: False    # for sgdet only, in case some gt boxes are missing
+    NUM_CLASSES: 51                 # 51 for VG, 101 for GQA (not contain "to the left of" & "to the right of")
     BATCH_SIZE_PER_IMAGE: 1024      # sample as much as possible
     POSITIVE_FRACTION: 0.25
     CONTEXT_POOLING_DIM: 4096
@@ -94,6 +92,7 @@ DATASETS:
   TRAIN: ("VG150_curated_filtered_train",)
   VAL: ("VG150_curated_filtered_val",)
   TEST: ("VG150_curated_filtered_test",)
+  NAME: "VG150_curated_filtered"
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
@@ -133,14 +132,10 @@ GLOBAL_SETTING:
   #RELATION_PREDICTOR: "TransLikePredictor"
   #RELATION_PREDICTOR: "MotifsLike_GCL"
   #RELATION_PREDICTOR: "VCTree_GCL"
-  RELATION_PREDICTOR: "TransLike_GCL"
   BASIC_ENCODER: 'Hybrid-Attention'
   # ['Self-Attention', 'Cross-Attention', 'Hybrid-Attention'] for Transformer-Based Model, and ['Motifs', 'VTransE'] for DNN-Based Model
   ############### Parameters for Global Settings of Experiment ##############
-  DATASET_CHOICE: 'VG'
   USE_BIAS: True                                      # If use the relation statistics to serve as the priori knowledge
-  CHOOSE_BEST_MODEL_BY_METRIC: '_mean_recall'         # ['_recall', '_mean_recall'] To control which metric is the main concern
-  PRINT_INTERVAL: 100
   ############### Parameters for GCL Loss Setting ##############
   GCL_SETTING:
     GROUP_SPLIT_MODE: 'divide4'                       # To control the number of groups ['divide4', ''divide3', 'divide5', 'average']
@@ -152,4 +147,4 @@ GLOBAL_SETTING:
     ZERO_LABEL_PADDING_MODE: 'rand_insert'  # ['rand_insert', 'rand_choose', 'all_include'], to control how to insert into the relation which is ZERO
     NO_RELATION_PENALTY: 0.1
 OUTPUT_DIR: 'G:/output/sgg/output/newtest'
-#OUTPUT_DIR: 'G:/2022CVPR_models/0907_drn_Duals_mlp_add_nogateloss_DualS_noRouter_noid'
+METRIC_TO_TRACK: "mR"

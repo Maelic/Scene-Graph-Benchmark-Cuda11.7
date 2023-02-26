@@ -3,7 +3,7 @@ import torch
 
 from .box_head.box_head import build_roi_box_head
 from .mask_head.mask_head import build_roi_mask_head
-#from .attribute_head.attribute_head import build_roi_attribute_head
+from .attribute_head.attribute_head import build_roi_attribute_head
 from .keypoint_head.keypoint_head import build_roi_keypoint_head
 from .relation_head.relation_head import build_roi_relation_head
 
@@ -29,10 +29,10 @@ class CombinedROIHeads(torch.nn.ModuleDict):
             # During the relationship training stage, the bbox_proposal_network should be fixed, and no loss. 
             losses.update(loss_box)
 
-        # if self.cfg.MODEL.ATTRIBUTE_ON:
-        #     # Attribute head don't have a separate feature extractor
-        #     z, detections, loss_attribute = self.attribute(features, detections, targets)
-        #     losses.update(loss_attribute)
+        if self.cfg.MODEL.ATTRIBUTE_ON:
+            # Attribute head don't have a separate feature extractor
+            z, detections, loss_attribute = self.attribute(features, detections, targets)
+            losses.update(loss_attribute)
 
         if self.cfg.MODEL.MASK_ON:
             mask_features = features
@@ -87,8 +87,8 @@ def build_roi_heads(cfg, in_channels):
         roi_heads.append(("keypoint", build_roi_keypoint_head(cfg, in_channels)))
     if cfg.MODEL.RELATION_ON:
         roi_heads.append(("relation", build_roi_relation_head(cfg, in_channels)))
-    # if cfg.MODEL.ATTRIBUTE_ON:
-    #     roi_heads.append(("attribute", build_roi_attribute_head(cfg, in_channels)))
+    if cfg.MODEL.ATTRIBUTE_ON:
+        roi_heads.append(("attribute", build_roi_attribute_head(cfg, in_channels)))
 
     # combine individual heads in a single module
     if roi_heads:

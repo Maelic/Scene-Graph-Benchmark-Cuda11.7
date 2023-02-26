@@ -109,7 +109,11 @@ def _rename_weights_for_resnet(weights, stage_names):
 
     key_map = {k: v for k, v in zip(original_keys, layer_keys)}
 
-    logger = logging.getLogger(__name__)
+    try:
+        from loguru import logger
+    except ImportError:
+        logger = logging.getLogger(__name__)
+
     logger.info("Remapping C2 weights")
     max_c2_key_size = max([len(k) for k in original_keys if "_momentum" not in k])
 
@@ -141,7 +145,10 @@ def _load_c2_pickled_weights(file_path):
 
 def _rename_conv_weights_for_deformable_conv_layers(state_dict, cfg):
     import re
-    logger = logging.getLogger(__name__)
+    try:
+        from loguru import logger
+    except ImportError:
+        logger = logging.getLogger(__name__)
     logger.info("Remapping conv weights for deformable conv weights")
     layer_keys = sorted(state_dict.keys())
     for ix, stage_with_dcn in enumerate(cfg.MODEL.RESNETS.STAGE_WITH_DCN, 1):

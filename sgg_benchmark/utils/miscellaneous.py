@@ -19,7 +19,10 @@ def mkdir(path):
 
 def save_labels(dataset_list, output_dir):
     if is_main_process():
-        logger = logging.getLogger(__name__)
+        try:
+            from loguru import logger
+        except ImportError:
+            logger = logging.getLogger(__name__)
 
         ids_to_labels = {}
         for dataset in dataset_list:

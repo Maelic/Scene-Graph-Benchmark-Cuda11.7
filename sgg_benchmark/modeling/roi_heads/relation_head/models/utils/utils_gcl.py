@@ -11,13 +11,11 @@ class FrequencyBias_GCL(nn.Module):
     P(predicate | obj1, obj2, img).
     """
 
-    def __init__(self, cfg, statistics, Dataset_choice, eps=1e-3, predicate_all_list=None):
+    def __init__(self, cfg, statistics, eps=1e-3, predicate_all_list=None):
         super(FrequencyBias_GCL, self).__init__()
         assert predicate_all_list is not None
-        if Dataset_choice == 'VG':
-            self.num_obj_cls = cfg.MODEL.ROI_BOX_HEAD.VG_NUM_CLASSES
-        elif Dataset_choice == 'GQA_200':
-            self.num_obj_cls = cfg.MODEL.ROI_BOX_HEAD.GQA_200_NUM_CLASSES
+        self.num_obj_cls = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES
+
         # self.num_obj_cls = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES
         self.num_rel_cls = max(predicate_all_list) + 1
         old_matrix = statistics['fg_matrix'].float()
@@ -31,6 +29,7 @@ class FrequencyBias_GCL(nn.Module):
             if i == 0 or predicate_all_list[i] > 0:
                 fg_matrix[:, :, lines] = old_matrix[:, :, i]
                 lines = lines + 1
+
         assert lines == self.num_rel_cls
 
         pred_dist = np.log(fg_matrix / fg_matrix.sum(2)[:, :, None] + eps)
@@ -128,14 +127,9 @@ def generate_num_stage_vector(incremental_stage_list):
 
     return num_stage_vector
 
-def get_current_predicate_idx(incremental_stage_list, zeros_vector_penalty, Dataset_choice):
-    data_long = 0
-    if Dataset_choice == 'VG':
-        data_long = 51
-    elif Dataset_choice == 'GQA_200':
-        data_long = 101
-    else:
-        exit('wrong mode in Dataset choice')
+def get_current_predicate_idx(incremental_stage_list, zeros_vector_penalty, num_predicate):
+    data_long = num_predicate
+
     outp = []
     for i in range(data_long):
         outp.append(0)
@@ -163,14 +157,9 @@ def get_current_predicate_idx(incremental_stage_list, zeros_vector_penalty, Data
 
     return outp, max_p, idx_search_p, kd_p
 
-def generate_onehot_vector(incremental_stage_list, current_training_stage, Dataset_choice):
-    data_long = 0
-    if Dataset_choice == 'VG':
-        data_long = 51
-    elif Dataset_choice == 'GQA_200':
-        data_long = 101
-    else:
-        exit('wrong mode in Dataset choice')
+def generate_onehot_vector(incremental_stage_list, current_training_stage, num_class):
+    data_long = num_class
+
     one_hot_vector = []
     if current_training_stage == -1:
         one_hot_vector.append(0)
@@ -195,18 +184,7 @@ def generate_onehot_vector(incremental_stage_list, current_training_stage, Datas
 
     return one_hot_vector
 
-def generate_sample_rate_vector(Dataset_choice, num_stage_predicate):
-    if Dataset_choice == 'VG':
-        predicate_new_order_count = [3024465, 109355, 67144, 47326, 31347, 21748, 15300, 10011, 11059, 10764, 6712,
-                                     5086, 4810, 3757, 4260, 3167, 2273, 1829, 1603, 1413, 1225, 793, 809, 676, 352,
-                                     663, 752, 565, 504, 644, 601, 551, 460, 394, 379, 397, 429, 364, 333, 299, 270,
-                                     234, 171, 208, 163, 157, 151, 71, 114, 44, 4]
-        assert len(predicate_new_order_count) == 51
-    elif Dataset_choice == 'GQA_200':
-        predicate_new_order_count = [200000, 64218, 47205, 32126, 25203, 21104, 15890, 15676, 7688, 6966, 6596, 6044, 5250, 4260, 4180, 4131, 2859, 2559, 2368, 2351, 2134, 1673, 1532, 1373, 1273, 1175, 1139, 1123, 1077, 941, 916, 849, 835, 808, 782, 767, 628, 603, 569, 540, 494, 416, 412, 412, 398, 395, 394, 390, 345, 327, 302, 301, 292, 275, 270, 267, 267, 264, 258, 251, 233, 233, 229, 224, 215, 214, 209, 204, 198, 195, 192, 191, 185, 181, 176, 158, 158, 154, 151, 148, 143, 136, 131, 130, 130, 128, 127, 125, 124, 124, 121, 118, 112, 112, 106, 105, 104, 103, 102, 52, 52]
-        assert len(predicate_new_order_count) == 101
-    else:
-        exit('wrong mode in Dataset_choice')
+def generate_sample_rate_vector(num_stage_predicate, predicate_new_order_count):
     outp = []
     for i in range(len(num_stage_predicate)):
         opiece = []
@@ -227,14 +205,9 @@ def generate_sample_rate_vector(Dataset_choice, num_stage_predicate):
         outp.append(opiece)
     return outp
 
-def generate_current_group_sequence_for_bias(current_set, Dataset_choice):
-    data_long = 0
-    if Dataset_choice == 'VG':
-        data_long = 51
-    elif Dataset_choice == 'GQA_200':
-        data_long = 101
-    else:
-        exit('wrong mode in Dataset choice')
+def generate_current_group_sequence_for_bias(current_set, num_class):
+    data_long = num_class
+
     outp = []
     for i in range(data_long):
         outp.append(0)
@@ -242,14 +215,9 @@ def generate_current_group_sequence_for_bias(current_set, Dataset_choice):
         outp[i] = i
     return outp
 
-def generate_current_sequence_for_bias(incremental_stage_list, Dataset_choice):
-    data_long = 0
-    if Dataset_choice == 'VG':
-        data_long = 51
-    elif Dataset_choice == 'GQA_200':
-        data_long = 101
-    else:
-        exit('wrong mode in Dataset choice')
+def generate_current_sequence_for_bias(incremental_stage_list, num_class):
+    data_long = num_class
+
     outp = []
     for i in range(len(incremental_stage_list)):
         opiece = []

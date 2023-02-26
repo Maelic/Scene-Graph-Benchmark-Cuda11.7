@@ -23,7 +23,10 @@ def get_dataset_statistics(cfg):
     get dataset statistics (e.g., frequency bias) from training data
     will be called to help construct FrequencyBias module
     """
-    logger = logging.getLogger(__name__)
+    try:
+        from loguru import logger
+    except ImportError:
+        logger = logging.getLogger(__name__)
     logger.info('-'*100)
     logger.info('get dataset statistics...')
     paths_catalog = import_file(
@@ -57,6 +60,8 @@ def get_dataset_statistics(cfg):
         'pred_dist': statistics[0]['pred_dist'],
         'obj_classes': statistics[0]['obj_classes'], # must be exactly same for multiple datasets
         'rel_classes': statistics[0]['rel_classes'],
+        'predicate_new_order': statistics[0]['predicate_new_order'], # for GCL
+        'predicate_new_order_count': statistics[0]['predicate_new_order_count'],
     }
     logger.info('Save data statistics to: ' + str(save_file))
     logger.info('-'*100)
@@ -190,7 +195,10 @@ def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0, data
         start_iter = 0
 
     if images_per_gpu > 1:
-        logger = logging.getLogger(__name__)
+        try:
+            from loguru import logger
+        except ImportError:
+            logger = logging.getLogger(__name__)
         logger.warning(
             "When using more than one image per GPU you may encounter "
             "an out-of-memory (OOM) error if your GPU does not have "

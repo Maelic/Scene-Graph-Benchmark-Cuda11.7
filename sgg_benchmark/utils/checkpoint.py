@@ -26,7 +26,10 @@ class Checkpointer(object):
         self.save_dir = save_dir
         self.save_to_disk = save_to_disk
         if logger is None:
-            logger = logging.getLogger(__name__)
+            try:
+                from loguru import logger
+            except ImportError:
+                logger = logging.getLogger(__name__)
         self.logger = logger
         self.custom_scheduler = custom_scheduler
 

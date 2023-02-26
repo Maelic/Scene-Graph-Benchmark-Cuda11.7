@@ -16,6 +16,7 @@ import numpy as np
 import torch
 
 from sgg_benchmark.config import cfg
+from sgg_benchmark.config.defaults_GCL import _C as cfg_GCL
 from sgg_benchmark.data import make_data_loader
 from sgg_benchmark.solver import make_lr_scheduler
 from sgg_benchmark.solver import make_optimizer
@@ -38,7 +39,7 @@ def train(cfg, logger, args):
     best_metric = 0.0
     best_checkpoint = None
 
-    metric_to_track = available_metrics[cfg.SOLVER.METRIC_TO_TRACK]
+    metric_to_track = available_metrics[cfg.METRIC_TO_TRACK]
 
     logger_step(logger, 'Building model...')
     model = build_detection_model(cfg) 
@@ -74,9 +75,6 @@ def train(cfg, logger, args):
 
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
-
-    if args['task']:
-        assert_mode(cfg, args['task'])
 
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
     num_batch = cfg.SOLVER.IMS_PER_BATCH
@@ -174,13 +172,10 @@ def train(cfg, logger, args):
 
         # Scaling loss
         scaler.scale(losses).backward()
-
+        
         # Unscale the gradients of optimizer's assigned params in-place before cliping
         # from https://pytorch.org/docs/stable/notes/amp_examples.html
         scaler.unscale_(optimizer)
-
-        # Scaling loss
-        scaler.scale(losses).backward()
 
         # add clip_grad_norm from MOTIFS, tracking gradient, used for debug
         verbose = (iteration % cfg.SOLVER.PRINT_GRAD_FREQ) == 0 or print_first_grad # print grad or not
@@ -230,7 +225,7 @@ def train(cfg, logger, args):
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
             logger.info("Start validating")
             val_result = run_val(cfg, model, val_data_loaders, args['distributed'], logger)
-            mode = assert_mode(cfg)
+            mode = get_mode(cfg)
             results = val_result[mode+metric_to_track]
             metric = float(np.mean(list(results.values())))
             logger.info("Average validation Result for %d: %.4f" % (cfg.SOLVER.METRIC_TO_TRACK, metric))
@@ -375,6 +370,14 @@ def run_test(cfg, model, distributed, logger):
         )
         synchronize()
 
+def get_mode(cfg):
+    task = "sgdet"
+    if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX == True:
+        task = "sgcls"
+        if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX == True:
+            task = "predcls"
+    return task
+
 def assert_mode(cfg, task):
     cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = False
     cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL = False
@@ -396,8 +399,15 @@ def main():
         )
         synchronize()
 
+    for arg in args.opts:
+        if "GCL_SETTING" in arg:
+            cfg.set_new_allowed(True) # recursively update set_new_allowed to allow merging of configs and subconfigs
+            cfg.merge_from_other_cfg(cfg_GCL)
+            break
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
+    if args.task:
+        assert_mode(cfg, args.task)
     cfg.freeze()
 
     output_dir = cfg.OUTPUT_DIR

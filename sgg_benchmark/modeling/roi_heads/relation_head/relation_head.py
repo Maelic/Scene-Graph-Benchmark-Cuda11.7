@@ -82,17 +82,24 @@ class ROIRelationHead(torch.nn.Module):
         if not self.training:
             result = self.post_processor((relation_logits, refine_logits), rel_pair_idxs, proposals)
             return roi_features, result, {}
-
-        loss_relation, loss_refine = self.loss_evaluator(proposals, rel_labels, relation_logits, refine_logits)
-
-        if self.cfg.MODEL.ATTRIBUTE_ON and isinstance(loss_refine, (list, tuple)):
-            output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine[0], loss_refine_att=loss_refine[1])
         else:
-            output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine)
+            return roi_features, proposals, add_losses
+    
+        # # for test
+        # if not self.training:
+        #     result = self.post_processor((relation_logits, refine_logits), rel_pair_idxs, proposals)
+        #     return roi_features, result, {}
 
-        output_losses.update(add_losses)
+        # loss_relation, loss_refine = self.loss_evaluator(proposals, rel_labels, relation_logits, refine_logits)
 
-        return roi_features, proposals, output_losses
+        # if self.cfg.MODEL.ATTRIBUTE_ON and isinstance(loss_refine, (list, tuple)):
+        #     output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine[0], loss_refine_att=loss_refine[1])
+        # else:
+        #     output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine)
+
+        # output_losses.update(add_losses)
+
+        # return roi_features, proposals, output_losses
 
 
 def build_roi_relation_head(cfg, in_channels):

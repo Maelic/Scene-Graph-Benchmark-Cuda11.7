@@ -15,7 +15,10 @@ from sgg_benchmark.modeling.rpn import rpn
 from sgg_benchmark.modeling import poolers
 
 
-logger = logging.getLogger(__name__)
+try:
+    from loguru import logger
+except ImportError:
+    logger = logging.getLogger(__name__)
 
 
 def create_builder(cfg):

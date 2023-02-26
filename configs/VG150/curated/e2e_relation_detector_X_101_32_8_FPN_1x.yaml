@@ -57,6 +57,7 @@ DATASETS:
   TRAIN: ("VG150_curated_filtered_train",)
   VAL: ("VG150_curated_filtered_val",)
   TEST: ("VG150_curated_filtered_test",)
+  NAME: "VG150_curated_filtered"
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:

@@ -34,7 +34,7 @@ MODEL:
     POSITIVE_FRACTION: 0.5
     BG_IOU_THRESHOLD: 0.3
     BATCH_SIZE_PER_IMAGE: 256
-    DETECTIONS_PER_IMG: 50
+    DETECTIONS_PER_IMG: 80
     NMS_FILTER_DUPLICATES: True
   ROI_BOX_HEAD:
     POOLER_RESOLUTION: 7
@@ -94,15 +94,14 @@ MODEL:
       VAL_DIM: 64
       INNER_DIM: 2048 
 DATASETS:
-  TRAIN: ("VG150_curated_filtered_train",)
-  VAL: ("VG150_curated_filtered_val",)
-  TEST: ("VG150_curated_filtered_test",)
-  NAME: "VG150_curated_filtered"
+  TRAIN: ("VG_stanford_filtered_with_attribute_train",)
+  VAL: ("VG_stanford_filtered_with_attribute_val",)
+  TEST: ("VG_stanford_filtered_with_attribute_test",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
   BIAS_LR_FACTOR: 1
-  BASE_LR: 0.03
+  BASE_LR: 0.02
   WARMUP_FACTOR: 0.1
   WEIGHT_DECAY: 0.0001
   MOMENTUM: 0.9
@@ -121,7 +120,6 @@ SOLVER:
     FACTOR: 0.1
     MAX_DECAY_STEP: 3
 OUTPUT_DIR: './output/relation_baseline'
-METRIC_TO_TRACK: ''
 TEST:
   ALLOW_LOAD_FROM_CACHE: False
   RELATION:
@@ -129,4 +127,4 @@ TEST:
     REQUIRE_OVERLAP: False
     LATER_NMS_PREDICTION_THRES: 0.5
   CUSTUM_EVAL: False       # eval SGDet model on custum images, output a json
-  CUSTUM_PATH: '.' 
+  CUSTUM_PATH: '.'         # the folder that contains the custum images, only jpg files are allowed  

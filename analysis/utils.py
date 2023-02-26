@@ -1,8 +1,9 @@
 import torch
 from tqdm import tqdm
 import numpy as np
+import os
 
-def generate_detect_sg(det_result, det_info, vg_dict, obj_thres = 0.1):
+def generate_detect_sg(det_result, det_info, vg_dict, obj_thres = 0.5):
     num_img = len(det_info)
     groundtruths = det_result['groundtruths']
     predictions = det_result['predictions']
@@ -48,6 +49,32 @@ def generate_detect_sg(det_result, det_info, vg_dict, obj_thres = 0.1):
 
         output[str(image_id)] = [{'entities' : pred_objs, 'relations' : pred_rels}, ]
     return output
+
+def generate_gt_sg(vg_data, vg_dict, info_dict):
+    img_obj_start = torch.LongTensor(vg_data['img_to_first_box'][:])
+    img_obj_end = torch.LongTensor(vg_data['img_to_last_box'][:])
+    img_rel_start = torch.LongTensor(vg_data['img_to_first_rel'][:])
+    img_rel_end = torch.LongTensor(vg_data['img_to_last_rel'][:])
+
+    img_obj_labels = torch.LongTensor(vg_data['labels'][:]).view(-1)
+    img_rel_pairs = torch.LongTensor(vg_data['relationships'][:])
+    img_rel_labels = torch.LongTensor(vg_data['predicates'][:]).view(-1)
+
+    valid_img_idx = [os.path.basename(img['img_file']).strip('.jpg') for img in info_dict]
+
+    img_to_sg = {}
+    for i, idx in enumerate(tqdm(valid_img_idx)):
+        if (int(img_obj_start[i]) < 0) or (int(img_rel_start[i]) < 0):
+            continue
+        else:
+            gt_boxes = img_obj_labels[int(img_obj_start[i]) : int(img_obj_end[i]) + 1].tolist()
+            gt_boxes = [vg_dict['idx_to_label'][str(i)] for i in gt_boxes]
+            gt_pairs = img_rel_pairs[int(img_rel_start[i]) : int(img_rel_end[i]) + 1] - int(img_obj_start[i])
+            gt_pairs = gt_pairs.tolist()
+            gt_rels = img_rel_labels[int(img_rel_start[i]) : int(img_rel_end[i]) + 1].tolist()
+            gt_triplet = [[i[0], i[1], j] for i, j in zip(gt_pairs, gt_rels)]
+            img_to_sg[str(idx)] = [{'entities' : gt_boxes, 'relations' : gt_triplet}, ]
+    return img_to_sg
 
 def compute_metrics(det_result, mode):
 

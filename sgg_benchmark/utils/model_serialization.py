@@ -19,7 +19,10 @@ def align_and_update_state_dicts(model_state_dict, loaded_state_dict, load_mappi
     we want to match backbone[0].body.conv1.weight to conv1.weight, and
     backbone[0].body.res2.conv1.weight to res2.conv1.weight.
     """
-    logger = logging.getLogger(__name__)
+    try:
+        from loguru import logger
+    except ImportError:
+        logger = logging.getLogger(__name__)
     current_keys = sorted(list(model_state_dict.keys()))
     loaded_keys = sorted(list(loaded_state_dict.keys()))
     # get a matrix of string matches, where each (i, j) entry correspond to the size of the

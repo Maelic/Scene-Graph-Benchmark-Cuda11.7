@@ -42,7 +42,7 @@ MODEL:
     POOLER_SAMPLING_RATIO: 2
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
-    NUM_CLASSES: 225                # 151 for VG, 1201 for GQA
+    NUM_CLASSES: 151                # 151 for VG, 201 for GQA
     MLP_HEAD_DIM: 4096
   ROI_ATTRIBUTE_HEAD:
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
@@ -52,14 +52,14 @@ MODEL:
     ATTRIBUTE_LOSS_WEIGHT: 1.0
     NUM_ATTRIBUTES: 201             # 201 for VG, 501 for GQA
     MAX_ATTRIBUTES: 10             
-    ATTRIBUTE_BGFG_SAMPLE: True    
+    ATTRIBUTE_BGFG_SAMPLE: True
     ATTRIBUTE_BGFG_RATIO: 3        
   ROI_RELATION_HEAD:
     USE_GT_BOX: True
     USE_GT_OBJECT_LABEL: True
     REQUIRE_BOX_OVERLAP: False              # for sgdet, during training, only train pairs with overlap
-    ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
-    NUM_CLASSES: 44                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
+    ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: False    # for sgdet only, in case some gt boxes are missing
+    NUM_CLASSES: 51                 # 51 for VG, 101 for GQA (not contain "to the left of" & "to the right of")
     BATCH_SIZE_PER_IMAGE: 1024      # sample as much as possible
     POSITIVE_FRACTION: 0.25
     CONTEXT_POOLING_DIM: 4096
@@ -67,11 +67,6 @@ MODEL:
     POOLING_ALL_LEVELS: True
     LABEL_SMOOTHING_LOSS: False
     FEATURE_EXTRACTOR: "RelationFeatureExtractor"
-    #################### Select Relationship Model ####################
-    #PREDICTOR: "MotifPredictor"
-    #PREDICTOR: "VCTreePredictor"
-    #PREDICTOR: "TransformerPredictor"
-    PREDICTOR: "CausalAnalysisPredictor"
     ################# Parameters for Motif Predictor ##################
     CONTEXT_OBJ_LAYER: 1
     CONTEXT_REL_LAYER: 1
@@ -97,20 +92,22 @@ DATASETS:
   TRAIN: ("VG_stanford_filtered_with_attribute_train",)
   VAL: ("VG_stanford_filtered_with_attribute_val",)
   TEST: ("VG_stanford_filtered_with_attribute_test",)
+  NAME: "VG_stanford_filtered_with_attribute"
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
   BIAS_LR_FACTOR: 1
-  BASE_LR: 0.02
+  BASE_LR: 0.001
   WARMUP_FACTOR: 0.1
   WEIGHT_DECAY: 0.0001
   MOMENTUM: 0.9
   GRAD_NORM_CLIP: 5.0
   STEPS: (10000, 16000)
   MAX_ITER: 40000
-  VAL_PERIOD: 2000
-  CHECKPOINT_PERIOD: 2000
+  VAL_PERIOD: 5000
+  CHECKPOINT_PERIOD: 5000
   PRINT_GRAD_FREQ: 4000
+  IMS_PER_BATCH: 2
   SCHEDULE:
     # the following paramters are only used for WarmupReduceLROnPlateau
     TYPE: "WarmupReduceLROnPlateau"    # WarmupMultiStepLR, WarmupReduceLROnPlateau
@@ -119,7 +116,6 @@ SOLVER:
     COOLDOWN: 0
     FACTOR: 0.1
     MAX_DECAY_STEP: 3
-OUTPUT_DIR: './output/relation_baseline'
 TEST:
   ALLOW_LOAD_FROM_CACHE: False
   RELATION:
@@ -127,4 +123,28 @@ TEST:
     REQUIRE_OVERLAP: False
     LATER_NMS_PREDICTION_THRES: 0.5
   CUSTUM_EVAL: False       # eval SGDet model on custum images, output a json
-  CUSTUM_PATH: '.'         # the folder that contains the custum images, only jpg files are allowed  
+  CUSTUM_PATH: '.'         # the folder that contains the custum images, only jpg files are allowed 
+  IMS_PER_BATCH: 1
+GLOBAL_SETTING:
+  ############### Parameters for Basic Encoder in Predictor ##############
+  #RELATION_PREDICTOR: "MotifsLikePredictor"
+  #RELATION_PREDICTOR: "VCTreePredictor"
+  #RELATION_PREDICTOR: "TransLikePredictor"
+  #RELATION_PREDICTOR: "MotifsLike_GCL"
+  #RELATION_PREDICTOR: "VCTree_GCL"
+  BASIC_ENCODER: 'Hybrid-Attention'
+  # ['Self-Attention', 'Cross-Attention', 'Hybrid-Attention'] for Transformer-Based Model, and ['Motifs', 'VTransE'] for DNN-Based Model
+  ############### Parameters for Global Settings of Experiment ##############
+  USE_BIAS: True                                      # If use the relation statistics to serve as the priori knowledge
+  ############### Parameters for GCL Loss Setting ##############
+  GCL_SETTING:
+    GROUP_SPLIT_MODE: 'divide4'                       # To control the number of groups ['divide4', ''divide3', 'divide5', 'average']
+    KNOWLEDGE_LOSS_COEFFICIENT: 1.0                   # To control the loss of Knowledge Transfer
+    KNOWLEDGE_TRANSFER_MODE: 'KL_logit_TopDown'       # To control how to transfer the knowledge between different auxiliary classifiers
+    # ['None', 'KL_logit_Neighbor', 'KL_logit_None', 'KL_logit_TopDown', 'KL_logit_BottomUp', 'KL_logit_BiDirection']
+    ############### The Following Parameters would not affect the performance much, is nearly useless ##############
+    NO_RELATION_RESTRAIN: True              # If two object do not have a relation, then limit their contribution to the final loss
+    ZERO_LABEL_PADDING_MODE: 'rand_insert'  # ['rand_insert', 'rand_choose', 'all_include'], to control how to insert into the relation which is ZERO
+    NO_RELATION_PENALTY: 0.1
+OUTPUT_DIR: 'G:/output/sgg/output/newtest'
+METRIC_TO_TRACK: "mR"
