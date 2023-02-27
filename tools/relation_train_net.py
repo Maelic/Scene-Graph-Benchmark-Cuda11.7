@@ -214,14 +214,15 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
             logger.info("Start validating")
             val_result = run_val(cfg, model, val_data_loaders, distributed, logger)
-            mean_recall = float(np.mean(list(val_result['predcls_mean_recall'].values())))
-            logger.info("Validation Result, Average mR@K: %.4f" % mean_recall)
             mode = assert_mode(cfg)
             metrics = val_result[mode+'_mean_recall']
+            mean_recall = float(np.mean(list(metrics.values())))
+            logger.info("Validation Result, Average mR@K: %.4f" % mean_recall)
+            
             if use_wandb:
                 for k, v in metrics.items():
-                    wandb.log({f'mR@{k}': v}, step=iteration)            
- 
+                    wandb.log({f'mR@{k}': v}, step=iteration)       
+                    
         # scheduler should be called after optimizer.step() in pytorch>=1.1.0
         # https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
         if cfg.SOLVER.SCHEDULE.TYPE == "WarmupReduceLROnPlateau":

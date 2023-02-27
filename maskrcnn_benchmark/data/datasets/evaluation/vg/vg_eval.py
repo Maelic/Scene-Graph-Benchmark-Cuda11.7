@@ -24,7 +24,7 @@ def do_vg_evaluation(
 ):
     # get zeroshot triplet
     if "relations" in iou_types:
-        zeroshot_triplet = torch.load(cfg.DATASETS.ZERO_SHOT, map_location=torch.device("cpu")).long().numpy()
+        zeroshot_triplet = torch.load('/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/maskrcnn_benchmark/data/datasets/evaluation/vg/zeroshot_triplet.pytorch').long().numpy()
         
     #attribute_on = cfg.MODEL.ATTRIBUTE_ON
     #num_attributes = cfg.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES

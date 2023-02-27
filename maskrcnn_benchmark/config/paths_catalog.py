@@ -9,103 +9,6 @@ class DatasetCatalog(object):
     #DATA_DIR = "/home/users/alatif/data/ImageCorpora/"
     DATA_DIR = "/home/maelic/Documents/Datasets/"
     DATASETS = {
-        "coco_2017_train": {
-            "img_dir": "coco/train2017",
-            "ann_file": "coco/annotations/instances_train2017.json"
-        },
-        "coco_2017_val": {
-            "img_dir": "coco/val2017",
-            "ann_file": "coco/annotations/instances_val2017.json"
-        },
-        "coco_2014_train": {
-            "img_dir": "coco/train2014",
-            "ann_file": "coco/annotations/instances_train2014.json"
-        },
-        "coco_2014_val": {
-            "img_dir": "coco/val2014",
-            "ann_file": "coco/annotations/instances_val2014.json"
-        },
-        "coco_2014_minival": {
-            "img_dir": "coco/val2014",
-            "ann_file": "coco/annotations/instances_minival2014.json"
-        },
-        "coco_2014_valminusminival": {
-            "img_dir": "coco/val2014",
-            "ann_file": "coco/annotations/instances_valminusminival2014.json"
-        },
-        "keypoints_coco_2014_train": {
-            "img_dir": "coco/train2014",
-            "ann_file": "coco/annotations/person_keypoints_train2014.json",
-        },
-        "keypoints_coco_2014_val": {
-            "img_dir": "coco/val2014",
-            "ann_file": "coco/annotations/person_keypoints_val2014.json"
-        },
-        "keypoints_coco_2014_minival": {
-            "img_dir": "coco/val2014",
-            "ann_file": "coco/annotations/person_keypoints_minival2014.json",
-        },
-        "keypoints_coco_2014_valminusminival": {
-            "img_dir": "coco/val2014",
-            "ann_file": "coco/annotations/person_keypoints_valminusminival2014.json",
-        },
-        "voc_2007_train": {
-            "data_dir": "voc/VOC2007",
-            "split": "train"
-        },
-        "voc_2007_train_cocostyle": {
-            "img_dir": "voc/VOC2007/JPEGImages",
-            "ann_file": "voc/VOC2007/Annotations/pascal_train2007.json"
-        },
-        "voc_2007_val": {
-            "data_dir": "voc/VOC2007",
-            "split": "val"
-        },
-        "voc_2007_val_cocostyle": {
-            "img_dir": "voc/VOC2007/JPEGImages",
-            "ann_file": "voc/VOC2007/Annotations/pascal_val2007.json"
-        },
-        "voc_2007_test": {
-            "data_dir": "voc/VOC2007",
-            "split": "test"
-        },
-        "voc_2007_test_cocostyle": {
-            "img_dir": "voc/VOC2007/JPEGImages",
-            "ann_file": "voc/VOC2007/Annotations/pascal_test2007.json"
-        },
-        "voc_2012_train": {
-            "data_dir": "voc/VOC2012",
-            "split": "train"
-        },
-        "voc_2012_train_cocostyle": {
-            "img_dir": "voc/VOC2012/JPEGImages",
-            "ann_file": "voc/VOC2012/Annotations/pascal_train2012.json"
-        },
-        "voc_2012_val": {
-            "data_dir": "voc/VOC2012",
-            "split": "val"
-        },
-        "voc_2012_val_cocostyle": {
-            "img_dir": "voc/VOC2012/JPEGImages",
-            "ann_file": "voc/VOC2012/Annotations/pascal_val2012.json"
-        },
-        "voc_2012_test": {
-            "data_dir": "voc/VOC2012",
-            "split": "test"
-            # PASCAL VOC2012 doesn't made the test annotations available, so there's no json annotation
-        },
-        "cityscapes_fine_instanceonly_seg_train_cocostyle": {
-            "img_dir": "cityscapes/images",
-            "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_train.json"
-        },
-        "cityscapes_fine_instanceonly_seg_val_cocostyle": {
-            "img_dir": "cityscapes/images",
-            "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_val.json"
-        },
-        "cityscapes_fine_instanceonly_seg_test_cocostyle": {
-            "img_dir": "cityscapes/images",
-            "ann_file": "cityscapes/annotations/instancesonly_filtered_gtFine_test.json"
-        },
         "VG_stanford_filtered": {
             "img_dir": "VG/VG_100K",
             "roidb_file": "VG/IndoorVG/VG-SGG.h5",
@@ -113,16 +16,16 @@ class DatasetCatalog(object):
             "image_file": "VG/IndoorVG/image_data.json",
         },
         "VG150_curated_filtered": {
-            "img_dir": "/home/maelic/Documents/PhD/Datasets/VisualGenome/VG_100K",
+            "img_dir": "/home/maelic/Documents/Datasets/VG/VG_100K",
             "roidb_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/VG-SGG.h5",
             "dict_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/VG-SGG-dicts.json",
-            "image_file": "/home/maelic/Documents/PhD/Datasets/VisualGenome/anno/image_data.json",
+            "image_file": "VG/original/image_data.json",
         },
         "VG150_connected_filtered": {
-            "img_dir": "/home/maelic/Documents/PhD/Datasets/VisualGenome/VG_100K",
+            "img_dir": "/home/maelic/Documents/Datasets/VG/VG_100K",
             "roidb_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/connected/VG-SGG.h5",
             "dict_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/connected/VG-SGG-dicts.json",
-            "image_file": "/home/maelic/Documents/PhD/Datasets/VisualGenome/anno/image_data.json",
+            "image_file": "VG/original/image_data.json",
         },
         "VG150_connected_filtered": {
             "img_dir": "VG/VG_100K",
