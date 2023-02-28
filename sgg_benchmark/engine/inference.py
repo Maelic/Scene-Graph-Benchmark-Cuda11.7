@@ -21,7 +21,6 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
     results_dict = {}
     cpu_device = torch.device("cpu")
     torch.cuda.empty_cache()
-    i = 0
     for _, batch in enumerate(tqdm(data_loader)):
         with torch.no_grad():
             images, targets, image_ids = batch
@@ -48,10 +47,6 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
             results_dict.update(
                 {img_id: result for img_id, result in zip(image_ids, output)}
             )
-        # every 20000 iteration we empty the cache and save output to disk
-        if i == 2000:
-            break
-        i += 1
         del output
     torch.cuda.empty_cache()
     return results_dict

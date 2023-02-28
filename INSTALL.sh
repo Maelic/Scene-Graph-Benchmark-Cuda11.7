@@ -19,14 +19,17 @@ wget -O VG150_connected.zip https://mycore.core-cloud.net/index.php/s/9Afn2UO8wV
 unzip VG150_connected.zip
 rm VG150_connected.zip
 
-cd ..
+cd ../..
+
+curl -sL "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" > "Miniconda3.sh"
+bash Miniconda3.sh -b -p $HOME/miniconda3
+source ~/.bashrc
 
 conda update --force conda
-conda create --name scene_graph_benchmark python=3.9
+conda create --name scene_graph_benchmark python=3.8
 conda activate scene_graph_benchmark
 conda install ipython scipy h5py ninja yacs cython matplotlib tqdm pandas
 conda remove yacs
 
-cd ..
 pip install -r requirements.txt
 python setup.py build develop
