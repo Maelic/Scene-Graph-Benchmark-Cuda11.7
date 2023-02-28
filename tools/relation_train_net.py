@@ -372,7 +372,7 @@ def get_mode(cfg):
     task = "sgdet"
     if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX == True:
         task = "sgcls"
-        if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX == True:
+        if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL == True:
             task = "predcls"
     return task
 

@@ -6,45 +6,39 @@ import copy
 
 
 class DatasetCatalog(object):
-    #DATA_DIR = "/home/users/alatif/data/ImageCorpora/"
-    DATA_DIR = "/home/maelic/Documents/PhD/Datasets/"
+    DATA_DIR = "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/"
+    IMG_DIR = "/home/maelic/Documents/PhD/Datasets/VisualGenome/"
     DATASETS = {
         "VG_stanford_filtered": {
-            "img_dir": "VG/VG_100K",
-            "roidb_file": "VG/IndoorVG/VG-SGG.h5",
-            "dict_file": "VG/IndoorVG/VG-SGG-dicts.json",
-            "image_file": "VG/IndoorVG/image_data.json",
+            "img_dir": IMG_DIR+"VG_100K",
+            "roidb_file": "datasets/VG150/baseline/VG-SGG.h5",
+            "dict_file": "datasets/VG150/baseline/VG-SGG-dicts.json",
+            "image_file": "datasets/vg/image_data.json",
+            "zeroshot_file": "datasets/VG150/baseline/zero_shot_triplets.pytorch",
         },
         "VG150_curated_filtered": {
-            "img_dir": "VisualGenome/VG_100K",
-            "roidb_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/VG-SGG.h5",
-            "dict_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/VG-SGG-dicts.json",
-            "image_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/baseline/image_data.json",
-            "zeroshot_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/zeroshot_triplet.pytorch",
+            "img_dir": IMG_DIR+"VG_100K",
+            "roidb_file": "datasets/VG150/no_part_whole/VG-SGG.h5",
+            "dict_file": "datasets/VG150/no_part_whole/VG-SGG-dicts.json",
+            "image_file": "datasets/vg/image_data.json",
+            "zeroshot_file": "datasets/VG150/no_part_whole/zero_shot_triplets.pytorch",
         },
         "VG150_connected_filtered": {
-            "img_dir": "/home/maelic/Documents/PhD/Datasets/VisualGenome/VG_100K",
-            "roidb_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/connected/VG-SGG.h5",
-            "dict_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/connected/VG-SGG-dicts.json",
-            "image_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/baseline/image_data.json",
-            "zeroshot_file": "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/sgg_benchmark/data/datasets/evaluation/vg/zeroshot_triplet.pytorch",
+            "img_dir": IMG_DIR+"VG_100K",
+            "roidb_file": "datasets/VG150/connected/VG-SGG.h5",
+            "dict_file": "datasets/VG150/connected/VG-SGG-dicts.json",
+            "image_file": "datasets/vg/image_data.json",
+            "zeroshot_file": "datasets/VG150/connected/zero_shot_triplets.pytorch",
         },
-        "VG_indoor_filtered": {
-            "img_dir": "VG/VG_100K",
-            "roidb_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/IndoorVG/with_part_whole/VG-SGG.h5",
-            "dict_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/IndoorVG/with_part_whole/VG-SGG-dicts.json",
-            "image_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/baseline/image_data.json",
-        },
-
         "VG_stanford_filtered_with_attribute": {
-            "img_dir": "VisualGenome/VG_100K",
+            "img_dir": IMG_DIR+"VG_100K",
             "roidb_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/baseline/VG-SGG-with-attri.h5",
             "dict_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/baseline/VG-SGG-dicts-with-attri.json",
             "image_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/baseline/image_data.json",
             "zeroshot_file": "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/sgg_benchmark/data/datasets/evaluation/vg/zeroshot_triplet.pytorch",
         },
         "VrR-VG_filtered_with_attribute": {
-            "img_dir": "VG/VG_100K",
+            "img_dir": IMG_DIR+"VG_100K",
             "roidb_file": "VG/VrR-VG/VrR_VG-SGG-with-attri.h5",
             "dict_file": "VG/VrR-VG/VrR_VG-SGG-dicts-with-attri.json",
             "image_file": "VG/VrR-VG/image_data.json",
