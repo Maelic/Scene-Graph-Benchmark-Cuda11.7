@@ -44,7 +44,7 @@ def default_argument_parser(epilog="PyTorch Relation Detection Training"):
         choices=['predcls', 'sgcls', 'sgdet'], 
     )
 
-    parser.add_argument("--save_best",
+    parser.add_argument("--save-best",
         dest="save_best",
         action="store_true",
         help="Only save the best epoch to save space",

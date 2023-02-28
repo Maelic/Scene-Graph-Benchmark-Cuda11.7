@@ -170,6 +170,8 @@ def train(cfg, logger, args):
         if args['use_wandb']:
             wandb.log({"loss": losses_reduced}, step=iteration)
 
+        optimizer.zero_grad()
+        
         # Scaling loss
         scaler.scale(losses).backward()
         
@@ -187,7 +189,7 @@ def train(cfg, logger, args):
         scaler.step(optimizer)
         scaler.update()
 
-        optimizer.zero_grad()
+        
 
         batch_time = time.time() - end
         end = time.time()
@@ -228,11 +230,11 @@ def train(cfg, logger, args):
             mode = get_mode(cfg)
             results = val_result[mode+metric_to_track]
             metric = float(np.mean(list(results.values())))
-            logger.info("Average validation Result for %d: %.4f" % (cfg.SOLVER.METRIC_TO_TRACK, metric))
+            logger.info("Average validation Result for %s: %.4f" % (cfg.SOLVER.METRIC_TO_TRACK, metric))
             
             if metric > best_metric:
                 best_epoch = iteration
-                best_metric = val_result
+                best_metric = metric
                 if args['save_best']:
                     to_remove = best_checkpoint
                     checkpointer.save("best_model_{:07d}".format(iteration), **arguments)
@@ -240,9 +242,9 @@ def train(cfg, logger, args):
 
                     # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
                     if to_remove is not None:
-                        os.remove(to_remove)
+                        os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove))
                 
-            logger.info("Now best epoch in %d is : %d, num is %.4f" % (cfg.SOLVER.METRIC_TO_TRACK+"@k", best_epoch, best_metric))
+            logger.info("Now best epoch in {} is : {}, with value is {}".format(cfg.METRIC_TO_TRACK+"@k", best_epoch, best_metric))
             
             if args['use_wandb']:
                 for k, v in results.items():

@@ -20,7 +20,7 @@ class DatasetCatalog(object):
             "roidb_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/VG-SGG.h5",
             "dict_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/VG-SGG-dicts.json",
             "image_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/baseline/image_data.json",
-            "zeroshot_file": "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/sgg_benchmark/data/datasets/evaluation/vg/zeroshot_triplet.pytorch",
+            "zeroshot_file": "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/no_part_whole/zeroshot_triplet.pytorch",
         },
         "VG150_connected_filtered": {
             "img_dir": "/home/maelic/Documents/PhD/Datasets/VisualGenome/VG_100K",
