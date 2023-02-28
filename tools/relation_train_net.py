@@ -184,12 +184,8 @@ def train(cfg, logger, args):
         print_first_grad = False
         clip_grad_norm([(n, p) for n, p in model.named_parameters() if p.requires_grad], max_norm=cfg.SOLVER.GRAD_NORM_CLIP, logger=logger, verbose=verbose, clip=True)
 
-        optimizer.step()
-
         scaler.step(optimizer)
         scaler.update()
-
-        
 
         batch_time = time.time() - end
         end = time.time()

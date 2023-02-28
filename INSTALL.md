@@ -32,17 +32,6 @@ conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvi
 
 export INSTALL_DIR=$PWD
 
-# install pycocotools
-cd $INSTALL_DIR
-git clone https://github.com/cocodataset/cocoapi.git
-cd cocoapi/PythonAPI
-python setup.py build_ext install
-
-# install PyTorch Detection
-cd $INSTALL_DIR
-git clone https://github.com/Maelic/Scene-Graph-Benchmark.pytorch.git
-cd scene-graph-benchmark
-
 # some pip dependencies
 pip install -r requirements.txt
 

@@ -181,10 +181,9 @@ def clip_grad_norm(named_parameters, max_norm, logger, clip=False, verbose=False
             if p.grad is not None:
                 p.grad.mul_(clip_coef)
 
-    if verbose:
-        logger.info('---Total norm {:.5f} clip coef {:.5f}-----------------'.format(total_norm, clip_coef))
-        for name, norm in sorted(param_to_norm.items(), key=lambda x: -x[1]):
-            logger.info("{:<50s}: {:.5f}, ({})".format(name, norm, param_to_shape[name]))
-        logger.info('-------------------------------')
+    logger.debug('---Total norm {:.5f} clip coef {:.5f}-----------------'.format(total_norm, clip_coef))
+    for name, norm in sorted(param_to_norm.items(), key=lambda x: -x[1]):
+        logger.debug("{:<50s}: {:.5f}, ({})".format(name, norm, param_to_shape[name]))
+    logger.debug('-------------------------------')
 
     return total_norm
