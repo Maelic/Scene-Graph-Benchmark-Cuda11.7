@@ -1,3 +1,4 @@
+BASE_DIR=$(pwd)
 # Download VG images
 cd datasets
 wget https://cs.stanford.edu/people/rak248/VG_100K_2/images.zip
@@ -19,10 +20,19 @@ wget -O VG150_connected.zip https://mycore.core-cloud.net/index.php/s/9Afn2UO8wV
 unzip VG150_connected.zip
 rm VG150_connected.zip
 
-cd ../..
+cd $BASE_DIR/checkpoints/
+mkdir -p connected
+cd connected/
+wget -O pretrained_faster_rcnn.zip https://mycore.core-cloud.net/index.php/s/ZaS3b09L3NNZkIJ/download
+unzip pretrained_faster_rcnn.zip
+rm pretrained_faster_rcnn.zip
 
-curl -sL "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" > "Miniconda3.sh"
-bash Miniconda3.sh -b -p $HOME/miniconda3
+cd $BASE_DIR
+
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
+bash ~/miniconda.sh -b -p $HOME/miniconda
+conda init
+
 source ~/.bashrc
 
 conda update --force conda

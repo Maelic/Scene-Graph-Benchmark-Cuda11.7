@@ -6,9 +6,9 @@ import copy
 
 
 class DatasetCatalog(object):
-    if os.path.exists("/ubuntu/"): # for lambda cloud
-        DATA_DIR = "/ubuntu/Scene-Graph-Benchmark-Cuda11.7/"
-        IMG_DIR = "/ubuntu/Scene-Graph-Benchmark-Cuda11.7/datasets/"
+    if os.path.exists("/home/ubuntu/"): # for lambda cloud
+        DATA_DIR = "/home/ubuntu/Scene-Graph-Benchmark-Cuda11.7/"
+        IMG_DIR = "/home/ubuntu/Scene-Graph-Benchmark-Cuda11.7/datasets/"
     elif os.path.exists("/home/maelic/Documents/PhD/Datasets/VisualGenome/"): # for local machine
         DATA_DIR = "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/"
         IMG_DIR = "/home/maelic/Documents/PhD/Datasets/VisualGenome/"

@@ -226,7 +226,7 @@ def train(cfg, logger, args):
             mode = get_mode(cfg)
             results = val_result[mode+metric_to_track]
             metric = float(np.mean(list(results.values())))
-            logger.info("Average validation Result for %s: %.4f" % (cfg.SOLVER.METRIC_TO_TRACK, metric))
+            logger.info("Average validation Result for %s: %.4f" % (cfg.METRIC_TO_TRACK, metric))
             
             if metric > best_metric:
                 best_epoch = iteration
@@ -244,7 +244,7 @@ def train(cfg, logger, args):
             
             if args['use_wandb']:
                 for k, v in results.items():
-                    res = cfg.SOLVER.METRIC_TO_TRACK+"@"+str(k)
+                    res = cfg.METRIC_TO_TRACK+"@"+str(k)
                     wandb.log({res: v}, step=iteration)            
  
         # scheduler should be called after optimizer.step() in pytorch>=1.1.0
