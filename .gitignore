@@ -22,6 +22,7 @@ wandb/
 *.png
 *.jpg
 *.jpeg
+*.npy
 
 # Editor temporaries
 *.swn
