@@ -37,7 +37,7 @@ class FastRCNNSampling(object):
         match_quality_matrix = boxlist_iou(target, proposal)
         matched_idxs = self.proposal_matcher(match_quality_matrix)
         # Fast RCNN only need "labels" field for selecting the targets
-        #target = target.copy_with_fields(["labels", "attributes"])
+        target = target.copy_with_fields(["labels", "attributes"])
         # get the targets corresponding GT for each proposal
         # NB: need to clamp the indices because we can have a single
         # GT in the image, and matched_idxs can be -2, which goes
@@ -99,17 +99,24 @@ class FastRCNNSampling(object):
         sampled_pos_inds, sampled_neg_inds = self.fg_bg_sampler(labels)
 
         proposals = list(proposals)
-        # add corresponding label and regression_targets information to the bounding boxes
-        for labels_per_image, regression_targets_per_image, matched_idxs_per_image, proposals_per_image in zip(
-            labels, regression_targets, matched_idxs, proposals
-        ):
-            proposals_per_image.add_field("labels", labels_per_image)
-            proposals_per_image.add_field("regression_targets", regression_targets_per_image)
-            proposals_per_image.add_field("matched_idxs", matched_idxs_per_image)
 
-        for attributes_per_image in attributes:
-            proposals_per_image.add_field("attributes", attributes_per_image)
-            
+        if attributes != []:
+            # add corresponding label and regression_targets information to the bounding boxes
+            for labels_per_image, attributes_per_image, regression_targets_per_image, matched_idxs_per_image, proposals_per_image in zip(
+                labels, attributes, regression_targets, matched_idxs, proposals
+            ):
+                proposals_per_image.add_field("labels", labels_per_image)
+                proposals_per_image.add_field("regression_targets", regression_targets_per_image)
+                proposals_per_image.add_field("matched_idxs", matched_idxs_per_image)
+                proposals_per_image.add_field("attributes", attributes_per_image)
+        else:
+            for labels_per_image, regression_targets_per_image, matched_idxs_per_image, proposals_per_image in zip(
+                labels, regression_targets, matched_idxs, proposals
+            ):
+                proposals_per_image.add_field("labels", labels_per_image)
+                proposals_per_image.add_field("regression_targets", regression_targets_per_image)
+                proposals_per_image.add_field("matched_idxs", matched_idxs_per_image)
+
         # distributed sampled proposals, that were obtained on all feature maps
         # concatenated via the fg_bg_sampler, into individual feature map levels
         for img_idx, (pos_inds_img, neg_inds_img) in enumerate(zip(sampled_pos_inds, sampled_neg_inds)):

@@ -24,18 +24,16 @@ from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
 from sgg_benchmark.utils.collect_env import collect_env_info
 from sgg_benchmark.utils.comm import synchronize, get_rank, all_gather
 from sgg_benchmark.utils.imports import import_file
-from sgg_benchmark.utils.logger import setup_logger
+from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir, save_config
 from sgg_benchmark.utils.metric_logger import MetricLogger
-
 import wandb
-
-wandb.init(project="faster-rcnn-sgg", entity="maelic")
 
 def train(cfg, local_rank, distributed, logger):
     model = build_detection_model(cfg)
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
+
 
     optimizer = make_optimizer(cfg, model, logger, rl_factor=float(cfg.SOLVER.IMS_PER_BATCH))
     scheduler = make_lr_scheduler(cfg, optimizer)
@@ -89,6 +87,8 @@ def train(cfg, local_rank, distributed, logger):
     end = time.time()
 
     val_result = 0
+    best_metric = 0
+    best_epoch = ""
 
     for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
 
@@ -150,15 +150,30 @@ def train(cfg, local_rank, distributed, logger):
                 )
             )
 
-        if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
+        if (cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0) or iteration == max_iter:
             logger.info("Start validating")
             val_result = run_val(cfg, model, val_data_loaders, distributed)
+
+            if val_result > best_metric:
+                best_epoch = iteration
+                best_metric = val_result
+                
+                to_remove = best_checkpoint
+                checkpointer.save("best_model_{:07d}".format(iteration), **arguments)
+                best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "model_{:07d}".format(iteration))
+
+                # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
+                if to_remove is not None:
+                    os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove))
+                
+            logger.info("Now best epoch in mAP is : {}, with value {}".format(best_epoch, best_metric))
+            
             wandb.log({"mAp": val_result})
 
-        if iteration % checkpoint_period == 0:
-            checkpointer.save("model_{:07d}".format(iteration), **arguments)
-        if iteration == max_iter:
-            checkpointer.save("model_final", **arguments)
+        # if iteration % checkpoint_period == 0:
+        #     checkpointer.save("model_{:07d}".format(iteration), **arguments)
+        # if iteration == max_iter:
+        #     checkpointer.save("model_final", **arguments)
 
         wandb.log({"loss": losses_reduced})
 
@@ -264,6 +279,13 @@ def main():
         nargs=argparse.REMAINDER,
     )
 
+    parser.add_argument("--use-wandb",
+        dest="use_wandb",
+        help="Use wandb logger (Requires wandb installed)",
+        action="store_true",
+        default=False
+    )
+
     args = parser.parse_args()
 
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
@@ -284,7 +306,13 @@ def main():
     if output_dir:
         mkdir(output_dir)
 
-    logger = setup_logger("maskrcnn_benchmark", output_dir, get_rank())
+    if args.use_wandb:
+        run_name = cfg.OUTPUT_DIR.split('/')[-1]
+        if args.distributed:
+            wandb.init(project="scene-graph-benchmark", entity="maelic", group="DDP", name=run_name, config=cfg)
+        wandb.init(project="scene-graph-benchmark", entity="maelic", name=run_name, config=cfg)
+        
+    logger = setup_logger("sgg_benchmark", output_dir, get_rank())
     logger.info("Using {} GPUs".format(num_gpus))
     logger.info(args)
 
