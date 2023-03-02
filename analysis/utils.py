@@ -32,20 +32,23 @@ def generate_detect_sg(det_result, det_info, vg_dict, obj_thres = 0.5):
         num_rel = rel_mask.shape[0]
         rel_matrix = torch.zeros((num_obj, num_obj))
         triplet_scores_matrix = torch.zeros((num_obj, num_obj))
+        rel_scores_matrix = torch.zeros((num_obj, num_obj))
         for k in range(num_rel):
             if rel_mask[k]:
-                rel_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])], triplet_scores_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])] = all_rel_labels[k], triplet_score[k]
+                rel_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])], triplet_scores_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])], rel_scores_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])] = all_rel_labels[k], triplet_score[k], all_rel_scores[k]
         rel_matrix = rel_matrix[obj_mask][:, obj_mask].long()
         triplet_scores_matrix = triplet_scores_matrix[obj_mask][:, obj_mask].float()
+        rel_scores_matrix = rel_scores_matrix[obj_mask][:, obj_mask].float()
         filter_obj = all_obj_labels[obj_mask]
         filter_pair = torch.nonzero(rel_matrix > 0)
         filter_rel = rel_matrix[filter_pair[:, 0], filter_pair[:, 1]]
         filter_scores = triplet_scores_matrix[filter_pair[:, 0], filter_pair[:, 1]]
+        filter_rel_scores = rel_scores_matrix[filter_pair[:, 0], filter_pair[:, 1]]
         # assert that filter_rel and filter_scores are same shape:
-        assert(filter_rel.size() == filter_scores.size())
+        assert(filter_rel.size() == filter_scores.size() == filter_rel_scores.size())
         # generate labels
         pred_objs = [vg_dict['idx_to_label'][str(i)] for i in filter_obj.tolist()]
-        pred_rels = [[i[0], i[1], vg_dict['idx_to_predicate'][str(j)], s] for i, j, s in zip(filter_pair.tolist(), filter_rel.tolist(), filter_scores.tolist())]
+        pred_rels = [[i[0], i[1], vg_dict['idx_to_predicate'][str(j)], s, z] for i, j, s, z in zip(filter_pair.tolist(), filter_rel.tolist(), filter_scores.tolist(), filter_rel_scores.tolist())]
 
         output[str(image_id)] = [{'entities' : pred_objs, 'relations' : pred_rels}, ]
     return output

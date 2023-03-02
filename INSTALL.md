@@ -24,7 +24,7 @@ conda create --name scene_graph_benchmark python=3.8
 conda activate scene_graph_benchmark
 
 # this installs the right conda dependencies for the fresh python
-conda install ipython scipy h5py ninja yacs cython matplotlib tqdm pandas
+conda install ipython scipy h5py ninja cython matplotlib tqdm pandas
 
 # follow PyTorch installation in https://pytorch.org/get-started/locally/
 # we give the instructions for CUDA 11.7

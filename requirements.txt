@@ -10,3 +10,4 @@ opencv-python
 loguru
 wandb
 pycocotools
+h5py
