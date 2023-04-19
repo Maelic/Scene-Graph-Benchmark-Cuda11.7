@@ -67,6 +67,16 @@ class VGDataset(torch.utils.data.Dataset):
             self.filenames = [self.filenames[i] for i in np.where(self.split_mask)[0]]
             self.img_info = [self.img_info[i] for i in np.where(self.split_mask)[0]]
 
+            assert(len(self.filenames) == len(self.gt_boxes) == len(self.gt_classes) == len(self.relationships) == len(self.img_info))
+            final_dict = []
+            for file, info, boxes, classes, rels in zip(self.filenames, self.img_info, self.gt_boxes, self.gt_classes, self.relationships):
+                final_dict.append({'width': info['width'], 'height': info['height'], 'img_path': file, 'boxes': np.array(boxes, dtype=np.float32), 'labels': np.array(classes), 'relations': np.array(rels)})
+
+            # to pickle
+            import pickle
+            with open('vg_sup_data.pk', 'wb') as f:
+                pickle.dump(final_dict, f)
+
 
     def __getitem__(self, index):
         #if self.split == 'train':

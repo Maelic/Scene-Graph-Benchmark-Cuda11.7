@@ -63,7 +63,7 @@ def draw_single_label(pic, box, label, color=(255,0,255,128)):
 
     bbox = draw.textbbox(bb_center, label, font=font)
     draw.rectangle(bbox, fill=color)
-    draw.text(bb_center, label, fill="white", font=font)
+    draw.text(bb_center, label, fill="black", font=font)
     return bb_center
 
 def draw_rel(pic, c1,c2, label, color=(0,255,255,128)):
@@ -74,7 +74,7 @@ def draw_rel(pic, c1,c2, label, color=(0,255,255,128)):
     bb_center = (c1[0] + c2[0]) / 2, (c1[1] + c2[1]) / 2
     bbox = draw.textbbox(bb_center, label, font=font)
     draw.rectangle(bbox, fill=color)
-    draw.text(bb_center, label, fill="white", font=font)
+    draw.text(bb_center, label, fill="black", font=font)
 
     return bb_center
 
