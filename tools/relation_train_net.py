@@ -234,11 +234,11 @@ def train(cfg, logger, args):
                 if args['save_best']:
                     to_remove = best_checkpoint
                     checkpointer.save("best_model_{:07d}".format(iteration), **arguments)
-                    best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "model_{:07d}".format(iteration))
+                    best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "best_model_{:07d}".format(iteration))
 
                     # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
                     if to_remove is not None:
-                        os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove))
+                        os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove+".pth"))
                 
             logger.info("Now best epoch in {} is : {}, with value is {}".format(cfg.METRIC_TO_TRACK+"@k", best_epoch, best_metric))
             

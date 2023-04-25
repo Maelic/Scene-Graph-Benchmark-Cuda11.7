@@ -58,6 +58,13 @@ class DatasetCatalog(object):
             "image_file": "VG/VrR-VG/image_data.json",
             "capgraphs_file": "VG/vg_capgraphs_anno.json",
         },
+        "VG_indoor_filtered": {
+            "img_dir": IMG_DIR+"VG_100K",
+            "roidb_file": DATA_DIR+"datasets/IndoorVG/final/VG-SGG_augmented.h5",
+            "dict_file": DATA_DIR+"datasets/IndoorVG/final/VG-SGG-dicts-with-attri.json",
+            "image_file": DATA_DIR+"datasets/vg/image_data.json",
+            "zeroshot_file": DATA_DIR+"datasets/IndoorVG/final/zero_shot_triplets.pytorch",
+        },
     }
 
     @staticmethod

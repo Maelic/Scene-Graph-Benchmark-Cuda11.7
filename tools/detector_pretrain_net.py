@@ -89,6 +89,7 @@ def train(cfg, local_rank, distributed, logger):
     val_result = 0
     best_metric = 0
     best_epoch = ""
+    best_checkpoint = None
 
     for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
 
@@ -160,11 +161,11 @@ def train(cfg, local_rank, distributed, logger):
                 
                 to_remove = best_checkpoint
                 checkpointer.save("best_model_{:07d}".format(iteration), **arguments)
-                best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "model_{:07d}".format(iteration))
+                best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "best_model_{:07d}".format(iteration))
 
                 # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
                 if to_remove is not None:
-                    os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove))
+                    os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove+".pth"))
                 
             logger.info("Now best epoch in mAP is : {}, with value {}".format(best_epoch, best_metric))
             
