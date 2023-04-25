@@ -47,9 +47,56 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
             results_dict.update(
                 {img_id: result for img_id, result in zip(image_ids, output)}
             )
+            detected_sgg = custom_sgg_post_precessing(results_dict)
+            clean_graph = generate_detect_sg(detected_sgg, vg_dict)
+            # save the detected sgg to npy file
+            np.save(os.path.join(save_dir, 'sgg_{}.npy'.format(image_id)), clean_graph)
+            
         del output
     torch.cuda.empty_cache()
     return results_dict
+
+
+def generate_detect_sg(predictions, vg_dict, obj_thres = 0.5):
+    
+    all_obj_labels = predictions.get_field('pred_labels')
+    all_obj_scores = predictions.get_field('pred_scores')
+    all_rel_pairs = predictions.get_field('rel_pair_idxs')
+    all_rel_prob = predictions.get_field('pred_rel_scores')
+    all_rel_scores, all_rel_labels = all_rel_prob.max(-1)
+
+    # filter objects and relationships
+    all_obj_scores[all_obj_scores < obj_thres] = 0.0
+    obj_mask = all_obj_scores >= obj_thres
+    triplet_score = all_obj_scores[all_rel_pairs[:, 0]] * all_obj_scores[all_rel_pairs[:, 1]] * all_rel_scores
+    rel_mask = ((all_rel_labels > 0) + (triplet_score > 0)) > 0
+
+    # generate filterred result
+    num_obj = obj_mask.shape[0]
+    num_rel = rel_mask.shape[0]
+    rel_matrix = torch.zeros((num_obj, num_obj))
+    triplet_scores_matrix = torch.zeros((num_obj, num_obj))
+    rel_scores_matrix = torch.zeros((num_obj, num_obj))
+    for k in range(num_rel):
+        if rel_mask[k]:
+            rel_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])], triplet_scores_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])], rel_scores_matrix[int(all_rel_pairs[k, 0]), int(all_rel_pairs[k, 1])] = all_rel_labels[k], triplet_score[k], all_rel_scores[k]
+    rel_matrix = rel_matrix[obj_mask][:, obj_mask].long()
+    triplet_scores_matrix = triplet_scores_matrix[obj_mask][:, obj_mask].float()
+    rel_scores_matrix = rel_scores_matrix[obj_mask][:, obj_mask].float()
+    filter_obj = all_obj_labels[obj_mask]
+    filter_pair = torch.nonzero(rel_matrix > 0)
+    filter_rel = rel_matrix[filter_pair[:, 0], filter_pair[:, 1]]
+    filter_scores = triplet_scores_matrix[filter_pair[:, 0], filter_pair[:, 1]]
+    filter_rel_scores = rel_scores_matrix[filter_pair[:, 0], filter_pair[:, 1]]
+    # assert that filter_rel and filter_scores are same shape:
+    assert(filter_rel.size() == filter_scores.size() == filter_rel_scores.size())
+    # generate labels
+    pred_objs = [vg_dict['idx_to_label'][str(i)] for i in filter_obj.tolist()]
+    pred_rels = [[i[0], i[1], vg_dict['idx_to_predicate'][str(j)], s, z] for i, j, s, z in zip(filter_pair.tolist(), filter_rel.tolist(), filter_scores.tolist(), filter_rel_scores.tolist())]
+
+    output = [{'entities' : pred_objs, 'relations' : pred_rels}, ]
+
+    return output
 
 
 def _accumulate_predictions_from_multiple_gpus(predictions_per_gpu, synchronize_gather=True):
@@ -99,7 +146,7 @@ def inference(
     device = torch.device(device)
     num_devices = get_world_size()
     if logger is None:
-        logger = logging.getLogger("maskrcnn_benchmark.inference")
+        logger = logging.getLogger("sgg_benchmark.inference")
     dataset = data_loader.dataset
 
     logger.info("Start evaluation on {} dataset({} images).".format(dataset_name, len(dataset)))

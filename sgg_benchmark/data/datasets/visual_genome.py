@@ -66,6 +66,16 @@ class VGDataset(torch.utils.data.Dataset):
             self.filenames = [self.filenames[i] for i in np.where(self.split_mask)[0]]
             self.img_info = [self.img_info[i] for i in np.where(self.split_mask)[0]]
 
+            assert(len(self.filenames) == len(self.gt_boxes) == len(self.gt_classes) == len(self.relationships) == len(self.img_info))
+            final_dict = []
+            for file, info, boxes, classes, rels in zip(self.filenames, self.img_info, self.gt_boxes, self.gt_classes, self.relationships):
+                final_dict.append({'width': info['width'], 'height': info['height'], 'img_path': file, 'boxes': np.array(boxes, dtype=np.float32), 'labels': np.array(classes), 'relations': np.array(rels)})
+
+            # to pickle
+            import pickle
+            with open('vg_sup_data.pk', 'wb') as f:
+                pickle.dump(final_dict, f)
+
 
     def __getitem__(self, index):
         #if self.split == 'train':
@@ -289,6 +299,9 @@ def load_info(dict_file, add_bg=True):
     Loads the file containing the visual genome label meanings
     """
     info = json.load(open(dict_file, 'r'))
+    if "attribute_to_idx" in info.keys() and add_bg:
+        info['attribute_to_idx']['__background__'] = 0
+
     if add_bg:
         info['label_to_idx']['__background__'] = 0
         info['predicate_to_idx']['__background__'] = 0
@@ -303,6 +316,12 @@ def load_info(dict_file, add_bg=True):
 
     return ind_to_classes, ind_to_predicates #, ind_to_attributes
 
+    if "attribute_to_idx" in info.keys():
+        attribute_to_ind = info['attribute_to_idx']
+        ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
+        return ind_to_classes, ind_to_predicates, ind_to_attributes
+    
+    return ind_to_classes, ind_to_predicates, None
 
 def load_image_filenames(img_dir, image_file):
     """

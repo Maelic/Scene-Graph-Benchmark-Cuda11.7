@@ -4,6 +4,7 @@ INPUT:
   MIN_SIZE_TEST: 600
   MAX_SIZE_TEST: 1000
 MODEL:
+  PRETRAINED_DETECTOR_CKPT: /home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/checkpoints/VG150/curated/pretrained_faster_rcnn/model_final.pth
   META_ARCHITECTURE: "GeneralizedRCNN"
   WEIGHT: "catalog://ImageNetPretrained/FAIR/20171220/X-101-32x8d"
   BACKBONE:
@@ -55,8 +56,8 @@ MODEL:
     ATTRIBUTE_BGFG_SAMPLE: True    
     ATTRIBUTE_BGFG_RATIO: 3        
   ROI_RELATION_HEAD:
-    USE_GT_BOX: True
-    USE_GT_OBJECT_LABEL: True
+    USE_GT_BOX: False
+    USE_GT_OBJECT_LABEL: False
     REQUIRE_BOX_OVERLAP: False              # for sgdet, during training, only train pairs with overlap
     ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
     NUM_CLASSES: 51                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
@@ -78,7 +79,7 @@ MODEL:
     ############# Parameters for Causal Unbias Predictor ##############
     ### Implementation for paper "Unbiased Scene Graph Generation from Biased Training"
     CAUSAL:
-      EFFECT_TYPE: 'none'             # candicates: 'TDE', 'NIE', 'TE', 'none'
+      EFFECT_TYPE: 'TDE'             # candicates: 'TDE', 'NIE', 'TE', 'none'
       FUSION_TYPE: 'sum'              # candicates: 'sum', 'gate'         
       SEPARATE_SPATIAL: False         # separate spatial in union feature
       CONTEXT_LAYER: "motifs"         # candicates: motifs, vctree, vtranse
@@ -101,7 +102,7 @@ DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
   BIAS_LR_FACTOR: 1
-  BASE_LR: 0.03
+  BASE_LR: 0.01
   WARMUP_FACTOR: 0.1
   WEIGHT_DECAY: 0.0001
   MOMENTUM: 0.9
@@ -119,12 +120,16 @@ SOLVER:
     COOLDOWN: 0
     FACTOR: 0.1
     MAX_DECAY_STEP: 3
-OUTPUT_DIR: './output/relation_baseline'
 TEST:
   ALLOW_LOAD_FROM_CACHE: False
   RELATION:
     SYNC_GATHER: True      # turn on will slow down the evaluation to solve the sgdet test out of memory problem
     REQUIRE_OVERLAP: False
     LATER_NMS_PREDICTION_THRES: 0.5
-  CUSTUM_EVAL: False       # eval SGDet model on custum images, output a json
-  CUSTUM_PATH: '.' 
+  CUSTUM_EVAL: True       # eval SGDet model on custum images, output a json
+  CUSTUM_PATH: '/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/demo/final_comparison/images' 
+  IMS_PER_BATCH: 1
+DTYPE: "float32"
+GLOVE_DIR: /home/maelic/glove 
+OUTPUT_DIR: /home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/checkpoints/VG150/curated/sgdet_motifs_causal_tde 
+DETECTED_SGG_DIR: /home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/demo/final_comparison/curated
