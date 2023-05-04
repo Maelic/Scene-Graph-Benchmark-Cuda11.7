@@ -16,7 +16,7 @@ requirements = ["torch", "torchvision"]
 
 def get_extensions():
     this_dir = os.path.dirname(os.path.abspath(__file__))
-    extensions_dir = os.path.join(this_dir, "maskrcnn_benchmark", "csrc")
+    extensions_dir = os.path.join(this_dir, "sgg_benchmark", "csrc")
 
     main_file = glob.glob(os.path.join(extensions_dir, "*.cpp"))
     source_cpu = glob.glob(os.path.join(extensions_dir, "cpu", "*.cpp"))
@@ -45,7 +45,7 @@ def get_extensions():
 
     ext_modules = [
         extension(
-            "maskrcnn_benchmark._C",
+            "sgg_benchmark._C",
             sources,
             include_dirs=include_dirs,
             define_macros=define_macros,
@@ -57,11 +57,11 @@ def get_extensions():
 
 
 setup(
-    name="maskrcnn_benchmark",
-    version="0.1",
+    name="sgg_benchmark",
+    version="0.2",
     author="fmassa",
     url="https://github.com/facebookresearch/maskrcnn-benchmark",
-    description="object detection in pytorch",
+    description="Scene Graph Generation in pytorch",
     packages=find_packages(exclude=("configs", "tests",)),
     # install_requires=requirements,
     ext_modules=get_extensions(),

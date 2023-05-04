@@ -6,16 +6,16 @@ import argparse
 import os
 import torch
 
-from maskrcnn_benchmark.image_retrieval.evaluation import run_evaluation
-from maskrcnn_benchmark.image_retrieval.modelv2 import SGEncode
-from maskrcnn_benchmark.image_retrieval.dataloader import get_loader
-from maskrcnn_benchmark.config import cfg
-from maskrcnn_benchmark.solver import make_lr_scheduler
-from maskrcnn_benchmark.solver import make_optimizer
-from maskrcnn_benchmark.utils.collect_env import collect_env_info
-from maskrcnn_benchmark.utils.comm import synchronize, get_rank
-from maskrcnn_benchmark.utils.logger import setup_logger, debug_print
-from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
+from sgg_benchmark.image_retrieval.evaluation import run_evaluation
+from sgg_benchmark.image_retrieval.modelv2 import SGEncode
+from sgg_benchmark.image_retrieval.dataloader import get_loader
+from sgg_benchmark.config import cfg
+from sgg_benchmark.solver import make_lr_scheduler
+from sgg_benchmark.solver import make_optimizer
+from sgg_benchmark.utils.collect_env import collect_env_info
+from sgg_benchmark.utils.comm import synchronize, get_rank
+from sgg_benchmark.utils.logger import setup_logger, debug_print
+from sgg_benchmark.utils.miscellaneous import mkdir, save_config
 from tools.image_retrieval_main import get_dataset, run_test
 import numpy as np
 # See if we can use apex.DistributedDataParallel instead of the torch default,

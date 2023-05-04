@@ -5,9 +5,9 @@ Basic training script for PyTorch
 
 # Set up custom environment before nearly anything else is imported
 # NOTE: this should be the first import (no not reorder)
-from maskrcnn_benchmark.utils.env import setup_environment  # noqa F401 isort:skip
+from sgg_benchmark.utils.env import setup_environment  # noqa F401 isort:skip
 
-import argparse
+import tqdm
 import os
 import time
 import datetime
@@ -15,35 +15,40 @@ import numpy as np
 
 import torch
 
-from maskrcnn_benchmark.config import cfg
-from maskrcnn_benchmark.data import make_data_loader
-from maskrcnn_benchmark.solver import make_lr_scheduler
-from maskrcnn_benchmark.solver import make_optimizer
-from maskrcnn_benchmark.engine.trainer import reduce_loss_dict
-from maskrcnn_benchmark.engine.inference import inference
-from maskrcnn_benchmark.modeling.detector import build_detection_model
-from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
-from maskrcnn_benchmark.utils.checkpoint import clip_grad_norm
-from maskrcnn_benchmark.utils.collect_env import collect_env_info
-from maskrcnn_benchmark.utils.comm import synchronize, get_rank, all_gather
-from maskrcnn_benchmark.utils.logger import setup_logger, debug_print
-from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
-from maskrcnn_benchmark.utils.metric_logger import MetricLogger
+from sgg_benchmark.config import cfg
+from sgg_benchmark.config.defaults_GCL import _C as cfg_GCL
+from sgg_benchmark.data import make_data_loader
+from sgg_benchmark.solver import make_lr_scheduler
+from sgg_benchmark.solver import make_optimizer
+from sgg_benchmark.engine.trainer import reduce_loss_dict
+from sgg_benchmark.engine.inference import inference
+from sgg_benchmark.modeling.detector import build_detection_model
+from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
+from sgg_benchmark.utils.checkpoint import clip_grad_norm
+from sgg_benchmark.utils.collect_env import collect_env_info
+from sgg_benchmark.utils.comm import synchronize, get_rank, all_gather
+from sgg_benchmark.utils.logger import setup_logger, logger_step
+from sgg_benchmark.utils.miscellaneous import mkdir, save_config
+from sgg_benchmark.utils.metric_logger import MetricLogger
+from sgg_benchmark.utils.parser import default_argument_parser
 
-def train(cfg, local_rank, distributed, logger, use_wandb):
-    
+def train(cfg, logger, args):
+    available_metrics = {"mR": "_mean_recall", "R": "_recall", "zR": "_zeroshot_recall", "ng-zR": "_ng_zeroshot_recall", "ng-R": "_recall_nogc", "ng-mR": "_ng_mean_recall", "topA": ["_accuracy_hit", "_accuracy_count"]}
+
     best_epoch = 0
     best_metric = 0.0
+    best_checkpoint = None
 
-    debug_print(logger, 'Prepare training')
+    metric_to_track = available_metrics[cfg.METRIC_TO_TRACK]
+
+    logger_step(logger, 'Building model...')
     model = build_detection_model(cfg) 
-    debug_print(logger, 'End model construction')
 
     # get run name for logger
-    if use_wandb:
+    if args['use_wandb']:
         import wandb
         run_name = cfg.OUTPUT_DIR.split('/')[-1]
-        if distributed:
+        if args['distributed']:
             wandb.init(project="scene-graph-benchmark", entity="maelic", group="DDP", name=run_name, config=cfg)
         wandb.init(project="scene-graph-benchmark", entity="maelic", name=run_name, config=cfg)
 
@@ -75,20 +80,20 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
     num_batch = cfg.SOLVER.IMS_PER_BATCH
     optimizer = make_optimizer(cfg, model, logger, slow_heads=slow_heads, slow_ratio=10.0, rl_factor=float(num_batch))
     scheduler = make_lr_scheduler(cfg, optimizer, logger)
-    debug_print(logger, 'end optimizer and shcedule')
+    logger_step(logger, 'Building optimizer and shcedule')
 
     # Initialize mixed-precision training
     use_amp = True if cfg.DTYPE == "float16" else False
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
-    if distributed:
+    if args['distributed']:
         model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[local_rank], output_device=local_rank,
+            model, device_ids=[args['local_rank']], output_device=args['local_rank'],
             # this should be removed if we update BatchNorm stats
             broadcast_buffers=False,
             find_unused_parameters=True,
         )
-    debug_print(logger, 'end distributed')
+
     arguments = {}
     arguments["iteration"] = 0
 
@@ -106,24 +111,27 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
     else:
         # load_mapping is only used when we init current model from detection model.
         checkpointer.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT, with_optim=False, load_mapping=load_mapping)
-    debug_print(logger, 'end load checkpointer')
+
+    logger_step(logger, 'Building checkpointer')
+
     train_data_loader = make_data_loader(
         cfg,
         mode='train',
-        is_distributed=distributed,
+        is_distributed=args['distributed'],
         start_iter=arguments["iteration"],
     )
     val_data_loaders = make_data_loader(
         cfg,
         mode='val',
-        is_distributed=distributed,
+        is_distributed=args['distributed'],
     )
-    debug_print(logger, 'end dataloader')
+    logger_step(logger, 'Building dataloader')
+
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD
 
     if cfg.SOLVER.PRE_VAL:
         logger.info("Validate before training")
-        run_val(cfg, model, val_data_loaders, distributed, logger, device=device)
+        run_val(cfg, model, val_data_loaders, args['distributed'], logger, device=device)
 
     meters = MetricLogger(delimiter="  ")
 
@@ -159,30 +167,25 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
 
         meters.update(loss=losses_reduced, **loss_dict_reduced)
-        if use_wandb:
+        if args['use_wandb']:
             wandb.log({"loss": losses_reduced}, step=iteration)
 
+        optimizer.zero_grad()
+        
         # Scaling loss
         scaler.scale(losses).backward()
-
+        
         # Unscale the gradients of optimizer's assigned params in-place before cliping
         # from https://pytorch.org/docs/stable/notes/amp_examples.html
         scaler.unscale_(optimizer)
-
-        # Scaling loss
-        scaler.scale(losses).backward()
 
         # add clip_grad_norm from MOTIFS, tracking gradient, used for debug
         verbose = (iteration % cfg.SOLVER.PRINT_GRAD_FREQ) == 0 or print_first_grad # print grad or not
         print_first_grad = False
         clip_grad_norm([(n, p) for n, p in model.named_parameters() if p.requires_grad], max_norm=cfg.SOLVER.GRAD_NORM_CLIP, logger=logger, verbose=verbose, clip=True)
 
-        optimizer.step()
-
         scaler.step(optimizer)
         scaler.update()
-
-        optimizer.zero_grad()
 
         batch_time = time.time() - end
         end = time.time()
@@ -191,7 +194,7 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
         eta_seconds = meters.time.global_avg * (max_iter - iteration)
         eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
 
-        if iteration % 200 == 0 or iteration == max_iter:
+        if iteration % 100 == 0 or iteration == max_iter:
             logger.info(
                 meters.delimiter.join(
                     [
@@ -210,7 +213,7 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
                 )
             )
 
-        if iteration % checkpoint_period == 0:
+        if not args['save_best'] and iteration % checkpoint_period == 0:
             checkpointer.save("model_{:07d}".format(iteration), **arguments)
         if iteration == max_iter:
             checkpointer.save("model_final", **arguments)
@@ -219,15 +222,30 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
         mean_recall = None
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
             logger.info("Start validating")
-            val_result = run_val(cfg, model, val_data_loaders, distributed, logger)
-            mode = assert_mode(cfg)
-            metrics = val_result[mode+'_mean_recall']
-            mean_recall = float(np.mean(list(metrics.values())))
-            logger.info("Validation Result, Average mR@K: %.4f" % mean_recall)
+            val_result = run_val(cfg, model, val_data_loaders, args['distributed'], logger)
+            mode = get_mode(cfg)
+            results = val_result[mode+metric_to_track]
+            metric = float(np.mean(list(results.values())))
+            logger.info("Average validation Result for %s: %.4f" % (cfg.METRIC_TO_TRACK, metric))
             
-            if use_wandb:
-                for k, v in metrics.items():
-                    wandb.log({f'mR@{k}': v}, step=iteration)            
+            if metric > best_metric:
+                best_epoch = iteration
+                best_metric = metric
+                if args['save_best']:
+                    to_remove = best_checkpoint
+                    checkpointer.save("best_model_{:07d}".format(iteration), **arguments)
+                    best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "best_model_{:07d}".format(iteration))
+
+                    # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
+                    if to_remove is not None:
+                        os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove+".pth"))
+                
+            logger.info("Now best epoch in {} is : {}, with value is {}".format(cfg.METRIC_TO_TRACK+"@k", best_epoch, best_metric))
+            
+            if args['use_wandb']:
+                for k, v in results.items():
+                    res = cfg.METRIC_TO_TRACK+"@"+str(k)
+                    wandb.log({res: v}, step=iteration)            
  
         # scheduler should be called after optimizer.step() in pytorch>=1.1.0
         # https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
@@ -247,7 +265,16 @@ def train(cfg, local_rank, distributed, logger, use_wandb):
             total_time_str, total_training_time / (max_iter)
         )
     )
-    return model
+
+    name = "model_{:07d}".format(best_epoch)
+    last_filename = os.path.join(cfg.OUTPUT_DIR, "{}.pth".format(name))
+    output_folder = os.path.join(cfg.OUTPUT_DIR, "last_checkpoint")
+    with open(output_folder, "w") as f:
+        f.write(last_filename)
+    print('\n\n')
+    logger.info("Best Epoch is : %.4f" % best_epoch)
+
+    return model, best_checkpoint 
 
 def fix_eval_modules(eval_modules):
     for module in eval_modules:
@@ -260,14 +287,10 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
         model = model.module
     torch.cuda.empty_cache()
     iou_types = ("bbox",)
-    if cfg.MODEL.MASK_ON:
-        iou_types = iou_types + ("segm",)
-    if cfg.MODEL.KEYPOINT_ON:
-        iou_types = iou_types + ("keypoints",)
     if cfg.MODEL.RELATION_ON:
         iou_types = iou_types + ("relations", )
-    # if cfg.MODEL.ATTRIBUTE_ON:
-    #     iou_types = iou_types + ("attributes", )
+    if cfg.MODEL.ATTRIBUTE_ON:
+        iou_types = iou_types + ("attributes", )
 
     dataset_names = cfg.DATASETS.VAL
     val_result = []
@@ -317,14 +340,10 @@ def run_test(cfg, model, distributed, logger):
         model = model.module
     torch.cuda.empty_cache()
     iou_types = ("bbox",)
-    if cfg.MODEL.MASK_ON:
-        iou_types = iou_types + ("segm",)
-    if cfg.MODEL.KEYPOINT_ON:
-        iou_types = iou_types + ("keypoints",)
     if cfg.MODEL.RELATION_ON:
         iou_types = iou_types + ("relations", )
-    # if cfg.MODEL.ATTRIBUTE_ON:
-    #     iou_types = iou_types + ("attributes", )
+    if cfg.MODEL.ATTRIBUTE_ON:
+        iou_types = iou_types + ("attributes", )
     output_folders = [None] * len(cfg.DATASETS.TEST)
     dataset_names = cfg.DATASETS.TEST
     if cfg.OUTPUT_DIR:
@@ -349,54 +368,24 @@ def run_test(cfg, model, distributed, logger):
         )
         synchronize()
 
-def assert_mode(cfg):
-    if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
-        if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
-            mode = 'predcls'
-        else:
-            mode = 'sgcls'
-    else:
-        mode = 'sgdet'
-    
-    return mode
+def get_mode(cfg):
+    task = "sgdet"
+    if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX == True:
+        task = "sgcls"
+        if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL == True:
+            task = "predcls"
+    return task
+
+def assert_mode(cfg, task):
+    cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = False
+    cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL = False
+    if task == "sgcls" or task == "predcls":
+        cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX = True
+    if task == "predcls":
+        cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL = True
 
 def main():
-    parser = argparse.ArgumentParser(description="PyTorch Relation Detection Training")
-    parser.add_argument(
-        "--config-file",
-        default="",
-        metavar="FILE",
-        help="path to config file",
-        type=str,
-    )
-    parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument(
-        "--skip-test",
-        dest="skip_test",
-        help="Do not test the final model",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--use-tensorboard",
-        dest="use_tensorboard",
-        help="Use tensorboardX logger (Requires tensorboardX installed)",
-        action="store_true",
-        default=False
-    )
-    parser.add_argument(
-        "opts",
-        help="Modify config options using the command-line",
-        default=None,
-        nargs=argparse.REMAINDER,
-    )
-    parser.add_argument(
-        "--use-wandb",
-        dest="use_wandb",
-        help="Use wandb logger (Requires wandb installed)",
-        action="store_true",
-        default=False
-    )
-    args = parser.parse_args()
+    args = default_argument_parser()
 
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
     args.distributed = num_gpus > 1
@@ -408,25 +397,32 @@ def main():
         )
         synchronize()
 
+    for arg in args.opts:
+        if "GCL_SETTING" in arg:
+            cfg.set_new_allowed(True) # recursively update set_new_allowed to allow merging of configs and subconfigs
+            cfg.merge_from_other_cfg(cfg_GCL)
+            break
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
+    if args.task:
+        assert_mode(cfg, args.task)
     cfg.freeze()
 
     output_dir = cfg.OUTPUT_DIR
     if output_dir:
         mkdir(output_dir)
 
-    logger = setup_logger("maskrcnn_benchmark", output_dir, get_rank())
+    logger = setup_logger("sgg_benchmark", output_dir, get_rank(), verbose=args.verbose, steps=True)
     logger.info("Using {} GPUs".format(num_gpus))
-    logger.info(args)
+    logger.debug(args)
 
-    logger.info("Collecting env info (might take some time)")
-    logger.info("\n" + collect_env_info())
+    logger.info("Collecting environment info...")
+    logger_step(logger, "\n" + collect_env_info())
 
     logger.info("Loaded configuration file {}".format(args.config_file))
     with open(args.config_file, "r") as cf:
         config_str = "\n" + cf.read()
-        logger.info(config_str)
+        logger.debug(config_str)
     logger.info("Running with config:\n{}".format(cfg))
 
     output_config_path = os.path.join(cfg.OUTPUT_DIR, 'config.yml')
@@ -434,16 +430,32 @@ def main():
     # save overloaded model config in the output directory
     save_config(cfg, output_config_path)
 
-    model = train(
+    training_args = {"task:": args.task, 
+        "save_best": args.save_best, 
+        "use_wandb": args.use_wandb, 
+        "skip_test": args.skip_test, 
+        "local_rank": args.local_rank, 
+        "distributed": args.distributed
+    }
+
+    model, best_checkpoint = train(
         cfg=cfg,
-        local_rank=args.local_rank,
-        distributed=args.distributed,
         logger=logger,
-        use_wandb=args.use_wandb
+        args=training_args
     )
 
     if not args.skip_test:
-        run_test(cfg, model, args.distributed, logger)
+        if best_checkpoint is not None:
+            logger.info("Loading best checkpoint from {}...".format(best_checkpoint))
+            checkpointer = DetectronCheckpointer(cfg, model)
+            _ = checkpointer.load(best_checkpoint)
+            logger_step(logger, "Starting test with best checkpoint...")
+            run_test(cfg, model, args.distributed, logger)
+        else:
+            logger_step(logger, "Starting test with last checkpoint...")
+            run_test(cfg, model, args.distributed, logger)
+    
+    logger.info("#"*20+" END TRAINING "+"#"*20)
 
 
 if __name__ == "__main__":

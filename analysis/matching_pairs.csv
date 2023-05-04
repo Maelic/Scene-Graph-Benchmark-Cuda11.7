@@ -1,0 +1,21 @@
+,Triplet,Frequency,type
+0,ear on head,14.5,part-whole
+1,table under plate,11.371428571428572,spatial
+2,table with chair,8.675,possessive
+3,head of cow,7.548387096774194,part-whole
+4,head of zebra,5.301369863013699,part-whole
+5,man walking on street,5.166666666666667,semantic
+6,sign in front of building,5.108108108108108,spatial
+7,head of sheep,4.641025641025641,part-whole
+8,plate with food,4.555555555555555,possessive
+9,neck of giraffe,4.461538461538462,part-whole
+10,tire of truck,4.346153846153846,part-whole
+11,ear of cow,3.8620689655172415,part-whole
+12,tail of giraffe,3.861111111111111,part-whole
+13,tail of zebra,3.8297872340425534,part-whole
+14,woman wearing shoe,3.712871287128713,possessive
+15,leg of giraffe,3.6732673267326734,part-whole
+16,woman with hair,3.572254335260116,part-whole
+17,head has ear,3.4411764705882355,part-whole
+18,head of giraffe,3.4038461538461537,part-whole
+19,girl with hair,3.255813953488372,part-whole

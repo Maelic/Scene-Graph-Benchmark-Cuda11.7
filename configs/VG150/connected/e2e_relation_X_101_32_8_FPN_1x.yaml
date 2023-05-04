@@ -94,9 +94,9 @@ MODEL:
       VAL_DIM: 64
       INNER_DIM: 2048 
 DATASETS:
-  TRAIN: ("VG150_curated_filtered_train",)
-  VAL: ("VG150_curated_filtered_val",)
-  TEST: ("VG150_curated_filtered_test",)
+  TRAIN: ("VG150_connected_filtered_train",)
+  VAL: ("VG150_connected_filtered_val",)
+  TEST: ("VG150_connected_filtered_test",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
@@ -128,3 +128,4 @@ TEST:
     LATER_NMS_PREDICTION_THRES: 0.5
   CUSTUM_EVAL: False       # eval SGDet model on custum images, output a json
   CUSTUM_PATH: '.' 
+METRIC_TO_TRACK: "mR"

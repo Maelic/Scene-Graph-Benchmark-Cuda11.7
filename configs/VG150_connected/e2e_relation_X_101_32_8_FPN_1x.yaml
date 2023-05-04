@@ -97,6 +97,7 @@ DATASETS:
   TRAIN: ("VG150_connected_filtered_train",)
   VAL: ("VG150_connected_filtered_val",)
   TEST: ("VG150_connected_filtered_test",)
+  ZERO_SHOT: "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/VG150/connected/zero_shot_triplets.pytorch"
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
