@@ -161,6 +161,35 @@ class FocalLoss(nn.Module):
         else: return loss.sum()
 
 
+class FocalLossFGBGNormalization(nn.Module):
+    def __init__(self, alpha=1.0, gamma=2.0, logits=True, reduce=False, ignored_label_idx=None):
+        super(FocalLossFGBGNormalization, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.logits = logits
+        self.reduce = reduce
+        self.ignored_label_idx = ignored_label_idx
+
+    def forward(self, inputs, targets, reduce=True):
+        if self.logits:
+            BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
+        else:
+            BCE_loss = F.binary_cross_entropy(inputs, targets, reduction="none")
+        pt = torch.exp(-BCE_loss)
+        F_loss = self.alpha * (1.0 - pt) ** self.gamma * BCE_loss
+        if self.ignored_label_idx:
+            F_loss = F_loss[targets != self.ignored_label_idx]
+
+        if self.reduce:
+            loss = torch.mean(F_loss)
+        else:
+            loss = F_loss
+        
+        loss = loss.sum(-1)
+        loss /= (len(torch.nonzero(targets)) + 1)
+
+        return loss.mean(-1)
+
 
 def make_roi_relation_loss_evaluator(cfg):
 

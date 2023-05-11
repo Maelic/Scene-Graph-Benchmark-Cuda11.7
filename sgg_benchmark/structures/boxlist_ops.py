@@ -174,3 +174,11 @@ def cat_boxlist(bboxes):
             cat_boxes.add_field(field, data)
 
     return cat_boxes
+
+def squeeze_tensor(tensor):
+    tensor = torch.squeeze(tensor)
+    try:
+        len(tensor)
+    except TypeError:
+        tensor.unsqueeze_(0)
+    return tensor

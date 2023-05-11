@@ -9,11 +9,15 @@ from sgg_benchmark.modeling.utils import cat
 from .models.model_msg_passing import IMPContext
 from .models.model_vtranse import VTransEFeature
 from .models.model_vctree import VCTreeLSTMContext
+from .models.model_gpsnet import GPSNetContext
 from .models.model_motifs import LSTMContext, FrequencyBias
 from .models.model_motifs_with_attribute import AttributeLSTMContext
 from .models.model_transformer import TransformerContext
-from .models.utils.utils_relation import layer_init, get_box_info, get_box_pair_info
+from .models.utils.utils_relation import layer_init, get_box_info, get_box_pair_info, obj_prediction_nms
 from sgg_benchmark.data import get_dataset_statistics
+from .loss import FocalLossFGBGNormalization
+from .classifier import build_classifier
+from .models.utils.utils_motifs import to_onehot
 
 @registry.ROI_RELATION_PREDICTOR.register("TransformerPredictor")
 class TransformerPredictor(nn.Module):
@@ -219,7 +223,7 @@ class MotifPredictor(nn.Module):
         assert self.num_rel_cls==len(rel_classes)
         # init contextual lstm encoding
         if self.attribute_on:
-            self.context_layer = AttributeLSTMContext(config, obj_classes, att_classes, rel_classes, in_channels)
+            self.context_layer = AttributeLSTMContext(config, obj_classes, rel_classes, in_channels) # att_classes,
         else:
             self.context_layer = LSTMContext(config, obj_classes, rel_classes, in_channels)
 
@@ -414,6 +418,159 @@ class VCTreePredictor(nn.Module):
             add_losses["binary_loss"] = sum(binary_loss) / len(binary_loss)
 
         return obj_dists, rel_dists, add_losses
+
+
+@registry.ROI_RELATION_PREDICTOR.register("GPSNetPredictor")
+class GPSNetPredictor(nn.Module):
+    def __init__(self, config, in_channels):
+        super(GPSNetPredictor, self).__init__()
+        self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
+        self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
+        # train_use_bias is to use bias in the training
+        self.train_use_bias = config.MODEL.ROI_RELATION_HEAD.TRAIN_USE_BIAS
+        # predict_use_bias is to use bias in the inference
+        self.predict_use_bias = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_BIAS
+
+        # mode
+        if config.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
+            if config.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
+                self.mode = "predcls"
+            else:
+                self.mode = "sgcls"
+        else:
+            self.mode = "sgdet"
+
+        assert in_channels is not None
+        self.pooling_dim = config.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
+        self.input_dim = in_channels
+        self.hidden_dim = 512
+
+        self.context_layer = GPSNetContext(
+            config,
+            self.input_dim,
+            hidden_dim=self.hidden_dim,
+            num_iter=2,
+        )
+
+        self.rel_feature_type = "fusion"
+
+        self.use_obj_recls_logits = False
+        self.obj_recls_logits_update_manner = (
+            "replace"
+        )
+        assert self.obj_recls_logits_update_manner in ["replace", "add"]
+
+        self.focal_loss4pre_cls = FocalLossFGBGNormalization(alpha=1.0, gamma=0.0)
+        # post classification
+        self.rel_classifier = build_classifier(self.pooling_dim, self.num_rel_cls)
+        self.obj_classifier = build_classifier(self.pooling_dim, self.num_obj_cls)
+
+        self.pooling_dim = config.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
+
+        # freq
+        # if self.use_bias:
+        statistics = get_dataset_statistics(config)
+        self.freq_bias = FrequencyBias(config, statistics)
+
+        self.init_classifier_weight()
+
+    def init_classifier_weight(self):
+        self.rel_classifier.reset_parameters()
+        self.obj_classifier.reset_parameters()
+
+    def forward(
+        self,
+        inst_proposals,
+        rel_pair_idxs,
+        rel_labels,
+        rel_binarys,
+        roi_features,
+        union_features,
+        logger=None,
+    ):
+        """
+
+        :param inst_proposals:
+        :param rel_pair_idxs:
+        :param rel_labels:
+        :param rel_binarys:
+            the box pairs with that match the ground truth [num_prp, num_prp]
+        :param roi_features:
+        :param union_features:
+        :param logger:
+
+        Returns:
+            obj_dists (list[Tensor]): logits of object label distribution
+            rel_dists (list[Tensor])
+            rel_pair_idxs (list[Tensor]): (num_rel, 2) index of subject and object
+            union_features (Tensor): (batch_num_rel, context_pooling_dim): visual union feature of each pair
+        """
+
+        obj_feats, rel_feats, pre_cls_logits, relatedness = self.context_layer(
+            roi_features, union_features, inst_proposals, rel_pair_idxs, rel_binarys
+        )
+
+        if relatedness is not None:
+            for idx, prop in enumerate(inst_proposals):
+                prop.add_field("relness_mat", relatedness[idx])
+
+        if self.mode == "predcls":
+            obj_labels = cat(
+                [proposal.get_field("labels") for proposal in inst_proposals], dim=0
+            )
+            refined_obj_logits = to_onehot(obj_labels, self.num_obj_cls)
+        else:
+            refined_obj_logits = self.obj_classifier(obj_feats)
+
+        rel_cls_logits = self.rel_classifier(rel_feats)
+
+        num_objs = [len(b) for b in inst_proposals]
+        num_rels = [r.shape[0] for r in rel_pair_idxs]
+        assert len(num_rels) == len(num_objs)
+        if self.mode != "predcls":
+            obj_pred_logits = cat(
+                [each_prop.get_field("predict_logits") for each_prop in inst_proposals], dim=0
+            )
+        else:
+            obj_pred_logits = refined_obj_logits
+
+        # using the object results, update the pred label and logits
+        if self.use_obj_recls_logits:
+            boxes_per_cls = cat(
+                [proposal.get_field("boxes_per_cls") for proposal in inst_proposals], dim=0
+            )  # comes from post process of box_head
+            # here we use the logits refinements by adding
+            if self.obj_recls_logits_update_manner == "add":
+                obj_pred_logits = refined_obj_logits + obj_pred_logits
+            if self.obj_recls_logits_update_manner == "replace":
+                obj_pred_logits = refined_obj_logits
+            refined_obj_pred_labels = obj_prediction_nms(
+                boxes_per_cls, obj_pred_logits, nms_thresh=0.5
+            )
+            obj_pred_labels = refined_obj_pred_labels
+            
+        if (self.train_use_bias and self.training) or (self.predict_use_bias and not self.training):
+            if obj_pred_labels is None:
+                obj_pred_labels = cat(
+                    [each_prop.get_field("labels") for each_prop in inst_proposals], dim=0
+                )
+            obj_pred_labels = obj_pred_labels.split(num_objs, dim=0)
+            pair_preds = []
+            for pair_idx, obj_pred in zip(rel_pair_idxs, obj_pred_labels):
+                pair_preds.append(
+                    torch.stack((obj_pred[pair_idx[:, 0]], obj_pred[pair_idx[:, 1]]), dim=1)
+                )
+            pair_pred = cat(pair_preds, dim=0)
+            rel_cls_logits = rel_cls_logits + self.freq_bias.index_with_labels(
+                pair_pred.long()
+            )
+
+        obj_pred_logits = obj_pred_logits.split(num_objs, dim=0)
+        rel_cls_logits = rel_cls_logits.split(num_rels, dim=0)
+
+        add_losses = {}
+
+        return obj_pred_logits, rel_cls_logits, add_losses
 
 
 @registry.ROI_RELATION_PREDICTOR.register("CausalAnalysisPredictor")

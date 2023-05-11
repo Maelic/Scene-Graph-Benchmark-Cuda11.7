@@ -59,9 +59,9 @@ class DatasetCatalog(object):
             "capgraphs_file": "VG/vg_capgraphs_anno.json",
         },
         "VG_indoor_filtered": {
-            "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/IndoorVG/final/VG-SGG_augmented.h5",
-            "dict_file": DATA_DIR+"datasets/IndoorVG/final/VG-SGG-dicts-with-attri.json",
+            "img_dir": "/home/maelic/Documents/PhD/Datasets/VisualGenome/VG_100K",
+            "roidb_file": "/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/VG_refinement/data_tools/IndoorVG/final/VG-SGG.h5",
+            "dict_file": "/home/maelic/Documents/PhD/MyModel/PhD_Commonsense_Enrichment/VG_refinement/data_tools/IndoorVG/final/VG-SGG-dicts.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
             "zeroshot_file": DATA_DIR+"datasets/IndoorVG/final/zero_shot_triplets.pytorch",
         },

@@ -137,7 +137,7 @@ class RPNModule(torch.nn.Module):
         self.box_selector_test = box_selector_test
         self.loss_evaluator = loss_evaluator
 
-    def forward(self, images, features, targets=None):
+    def forward(self, images, image_sizes, features, targets=None):
         """
         Arguments:
             images (ImageList): images for which we want to compute the predictions
@@ -153,7 +153,7 @@ class RPNModule(torch.nn.Module):
                 testing, it is an empty dict.
         """
         objectness, rpn_box_regression = self.head(features)
-        anchors = self.anchor_generator(images, features)
+        anchors = self.anchor_generator(images, image_sizes, features)
 
         if self.training:
             return self._forward_train(anchors, objectness, rpn_box_regression, targets)
@@ -194,6 +194,8 @@ class RPNModule(torch.nn.Module):
                 box.get_field("objectness").sort(descending=True)[1] for box in boxes
             ]
             boxes = [box[ind] for box, ind in zip(boxes, inds)]
+            for box in boxes:
+                print(repr(box))
         return boxes, {}
 
 

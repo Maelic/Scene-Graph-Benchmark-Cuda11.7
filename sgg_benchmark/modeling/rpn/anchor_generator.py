@@ -109,11 +109,11 @@ class AnchorGenerator(nn.Module):
             inds_inside = torch.ones(anchors.shape[0], dtype=torch.uint8, device=device)
         boxlist.add_field("visibility", inds_inside)
 
-    def forward(self, image_list, feature_maps):
+    def forward(self, image_list, image_sizes, feature_maps):
         grid_sizes = [feature_map.shape[-2:] for feature_map in feature_maps]
         anchors_over_all_feature_maps = self.grid_anchors(grid_sizes)
         anchors = []
-        for i, (image_height, image_width) in enumerate(image_list.image_sizes):
+        for i, (image_height, image_width) in enumerate(image_sizes):
             anchors_in_image = []
             for anchors_per_feature_map in anchors_over_all_feature_maps:
                 boxlist = BoxList(
@@ -226,8 +226,8 @@ def generate_anchors(
     """
     return _generate_anchors(
         stride,
-        np.array(sizes, dtype=float) / stride,
-        np.array(aspect_ratios, dtype=float),
+        np.array(sizes, dtype=np.float) / stride,
+        np.array(aspect_ratios, dtype=np.float),
     )
 
 
@@ -235,7 +235,7 @@ def _generate_anchors(base_size, scales, aspect_ratios):
     """Generate anchor (reference) windows by enumerating aspect ratios X
     scales wrt a reference (0, 0, base_size - 1, base_size - 1) window.
     """
-    anchor = np.array([1, 1, base_size, base_size], dtype=float) - 1
+    anchor = np.array([1, 1, base_size, base_size], dtype=np.float) - 1
     anchors = _ratio_enum(anchor, aspect_ratios)
     anchors = np.vstack(
         [_scale_enum(anchors[i, :], scales) for i in range(anchors.shape[0])]
