@@ -149,8 +149,6 @@ def main():
 
     img_list = to_image_list(image)
 
-    print(target)
-
     with torch.no_grad():
         model.eval()
 
@@ -176,12 +174,12 @@ def main():
         features = model.backbone(img_list.tensors)
 
         torch.onnx.export(model.rpn,               # model being run
-                    (img_list.tensors, img_list.image_sizes, features, target),      # model input (or a tuple for multiple inputs)
+                    (img_list.tensors, img_list.image_sizes, features),      # model input (or a tuple for multiple inputs)
                     "motif_model_rwt_rpn.onnx",   # where to save the model (can be a file or file-like object)
                     export_params=True,        # store the trained parameter weights inside the model file
                     opset_version=11,          # the ONNX version to export the model to
                     do_constant_folding=True,  # whether to execute constant folding for optimization
-                    input_names = ['images', 'image_sizes', 'features', 'target'],   # the model's input names
+                    input_names = ['images', 'image_sizes', 'features'],   # the model's input names
                     output_names = ['output'])#, # the model's output names
                     #   dynamic_axes={'input' : {0 : 'batch_size'},    # variable length axes
                     #                 'output' : {0 : 'batch_size'}})
@@ -190,17 +188,17 @@ def main():
         proposals, proposal_losses = model.rpn(img_list.tensors, img_list.image_sizes, features, target)
 
         torch.onnx.export(model.roi_heads,               # model being run
-                    (features, proposals, target),                      # model input (or a tuple for multiple inputs)
+                    (features, proposals),                      # model input (or a tuple for multiple inputs)
                     "motif_model_rwt_relations_head.onnx",   # where to save the model (can be a file or file-like object)
                     export_params=True,        # store the trained parameter weights inside the model file
-                    opset_version=11,          # the ONNX version to export the model to
-                    do_constant_folding=True,  # whether to execute constant folding for optimization
-                    input_names = ['features', 'proposals', 'targets'],   # the model's input names
+                    # opset_version=11,          # the ONNX version to export the model to
+                    do_constant_folding=False,  # whether to execute constant folding for optimization
+                    input_names = ['features', 'proposals'],   # the model's input names
                     output_names = ['output'])#, # the model's output names
                     #   dynamic_axes={'input' : {0 : 'batch_size'},    # variable length axes
                     #                 'output' : {0 : 'batch_size'}})
 
-        x, result, detector_losses = model.roi_heads(features, proposals, target)
+        # x, result, detector_losses = model.roi_heads(features, proposals, target)
 
 if __name__ == "__main__":
     main()
