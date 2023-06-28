@@ -4,7 +4,7 @@ from torch import nn
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.nn.modules.utils import _pair
-
+from apex import amp
 from sgg_benchmark import _C
 
 class _ROIAlign(Function):
@@ -52,7 +52,7 @@ class ROIAlign(nn.Module):
         self.spatial_scale = spatial_scale
         self.sampling_ratio = sampling_ratio
 
-    @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
+    @amp.float_function
     def forward(self, input, rois):
         return roi_align(
             input, rois, self.output_size, self.spatial_scale, self.sampling_ratio

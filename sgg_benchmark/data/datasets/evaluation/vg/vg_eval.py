@@ -28,12 +28,13 @@ def do_vg_evaluation(
     if "relations" in iou_types:
         data_dir = DatasetCatalog.DATA_DIR
         zero_shot_file = DatasetCatalog.DATASETS[dataset_name]['zeroshot_file']
+        logger.info("Loading zero shot triplets file from {}".format(os.path.join(data_dir, zero_shot_file)))
         zeroshot_triplet = torch.load(os.path.join(data_dir, zero_shot_file), map_location=torch.device("cpu")).long().numpy()
 
-    #attribute_on = cfg.MODEL.ATTRIBUTE_ON
-    #num_attributes = cfg.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
+    attribute_on = cfg.MODEL.ATTRIBUTE_ON
+    num_attributes = cfg.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
     # extract evaluation settings from cfg
-    # mode = cfg.TEST.RELATION.EVAL_MODE
+    #mode = cfg.TEST.RELATION.EVAL_MODE
     if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
         if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
             mode = 'predcls'
@@ -163,8 +164,8 @@ def do_vg_evaluation(
         global_container['multiple_preds'] = multiple_preds
         global_container['num_rel_category'] = num_rel_category
         global_container['iou_thres'] = iou_thres
-        #global_container['attribute_on'] = attribute_on
-        #global_container['num_attributes'] = num_attributes
+        global_container['attribute_on'] = attribute_on
+        global_container['num_attributes'] = num_attributes
         
         for groundtruth, prediction in zip(groundtruths, predictions):
             evaluate_relation_of_one_image(groundtruth, prediction, global_container, evaluator)

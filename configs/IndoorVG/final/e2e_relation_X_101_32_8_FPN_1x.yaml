@@ -42,7 +42,7 @@ MODEL:
     POOLER_SAMPLING_RATIO: 2
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
-    NUM_CLASSES: 151                # 151 for VG, 1201 for GQA
+    NUM_CLASSES: 131                # 151 for VG, 1201 for GQA
     MLP_HEAD_DIM: 4096
   ROI_ATTRIBUTE_HEAD:
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
@@ -50,8 +50,8 @@ MODEL:
     USE_BINARY_LOSS: True           # choose binary, because cross_entropy loss deteriorate the box head, even with 0.1 weight
     POS_WEIGHT: 50.0
     ATTRIBUTE_LOSS_WEIGHT: 1.0
-    NUM_ATTRIBUTES: 201             # 201 for VG, 501 for GQA
-    MAX_ATTRIBUTES: 10             
+    # NUM_ATTRIBUTES: 201             # 201 for VG, 501 for GQA
+    # MAX_ATTRIBUTES: 10             
     ATTRIBUTE_BGFG_SAMPLE: True    
     ATTRIBUTE_BGFG_RATIO: 3        
   ROI_RELATION_HEAD:
@@ -94,14 +94,14 @@ MODEL:
       VAL_DIM: 64
       INNER_DIM: 2048 
 DATASETS:
-  TRAIN: ("VG150_curated_filtered_with_attri_train",)
-  VAL: ("VG150_curated_filtered_with_attri_val",)
-  TEST: ("VG150_curated_filtered_with_attri_test",)
+  TRAIN: ("VG_indoor_filtered_train",)
+  VAL: ("VG_indoor_filtered_val",)
+  TEST: ("VG_indoor_filtered_test",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
   BIAS_LR_FACTOR: 1
-  BASE_LR: 0.03
+  BASE_LR: 0.02
   WARMUP_FACTOR: 0.1
   WEIGHT_DECAY: 0.0001
   MOMENTUM: 0.9
@@ -120,7 +120,6 @@ SOLVER:
     FACTOR: 0.1
     MAX_DECAY_STEP: 3
 OUTPUT_DIR: './output/relation_baseline'
-METRIC_TO_TRACK: 'mR'
 TEST:
   ALLOW_LOAD_FROM_CACHE: False
   RELATION:
@@ -128,4 +127,4 @@ TEST:
     REQUIRE_OVERLAP: False
     LATER_NMS_PREDICTION_THRES: 0.5
   CUSTUM_EVAL: False       # eval SGDet model on custum images, output a json
-  CUSTUM_PATH: '.' 
+  CUSTUM_PATH: '.'         # the folder that contains the custum images, only jpg files are allowed  

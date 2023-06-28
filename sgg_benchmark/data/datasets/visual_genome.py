@@ -50,14 +50,14 @@ class VGDataset(torch.utils.data.Dataset):
         self.filter_duplicate_rels = filter_duplicate_rels and self.split == 'train'
         self.transforms = transforms
 
-        self.ind_to_classes, self.ind_to_predicates = load_info(dict_file) # , self.ind_to_attributes
+        self.ind_to_classes, self.ind_to_predicates , self.ind_to_attributes = load_info(dict_file) # 
         self.categories = {i : self.ind_to_classes[i] for i in range(len(self.ind_to_classes))}
 
         self.custom_eval = custom_eval
         if self.custom_eval:
             self.get_custom_imgs(custom_path)
         else:
-            self.split_mask, self.gt_boxes, self.gt_classes, self.relationships = load_graphs( # self.gt_attributes,
+            self.split_mask, self.gt_boxes, self.gt_classes, self.gt_attributes, self.relationships = load_graphs( # 
                 self.roidb_file, self.split, num_im, num_val_im=num_val_im,
                 filter_empty_rels=filter_empty_rels,
                 filter_non_overlap=self.filter_non_overlap,
@@ -110,7 +110,7 @@ class VGDataset(torch.utils.data.Dataset):
             'rel_classes': self.ind_to_predicates,
             'predicate_new_order': predicate_new_order,
             'predicate_new_order_count': predicate_new_order_count,
-            #'att_classes': self.ind_to_attributes,
+            'att_classes': self.ind_to_attributes,
         }
 
         return result
@@ -153,7 +153,7 @@ class VGDataset(torch.utils.data.Dataset):
         target = BoxList(box, (w, h), 'xyxy') # xyxy
 
         target.add_field("labels", torch.from_numpy(self.gt_classes[index]))
-        #target.add_field("attributes", torch.from_numpy(self.gt_attributes[index]))
+        target.add_field("attributes", torch.from_numpy(self.gt_attributes[index]))
 
         relation = self.relationships[index].copy() # (num_rel, 3)
         if self.filter_duplicate_rels:
@@ -292,16 +292,16 @@ def load_info(dict_file, add_bg=True):
     if add_bg:
         info['label_to_idx']['__background__'] = 0
         info['predicate_to_idx']['__background__'] = 0
-        #info['attribute_to_idx']['__background__'] = 0
+        info['attribute_to_idx']['__background__'] = 0
 
     class_to_ind = info['label_to_idx']
     predicate_to_ind = info['predicate_to_idx']
-    #attribute_to_ind = info['attribute_to_idx']
+    attribute_to_ind = info['attribute_to_idx']
     ind_to_classes = sorted(class_to_ind, key=lambda k: class_to_ind[k])
     ind_to_predicates = sorted(predicate_to_ind, key=lambda k: predicate_to_ind[k])
-    #ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
+    ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
 
-    return ind_to_classes, ind_to_predicates #, ind_to_attributes
+    return ind_to_classes, ind_to_predicates, ind_to_attributes
 
 
 def load_image_filenames(img_dir, image_file):
@@ -400,7 +400,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
 
     # Get box information
     all_labels = roi_h5['labels'][:, 0]
-    #all_attributes = roi_h5['attributes'][:, :]
+    all_attributes = roi_h5['attributes'][:, :]
     all_boxes = roi_h5['boxes_{}'.format(BOX_SCALE)][:]  # cx,cy,w,h
     assert np.all(all_boxes[:, :2] >= 0)  # sanity check
     assert np.all(all_boxes[:, 2:] > 0)  # no empty box
@@ -423,7 +423,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
     # Get everything by image.
     boxes = []
     gt_classes = []
-   # gt_attributes = []
+    gt_attributes = []
     relationships = []
     for i in range(len(image_index)):
         i_obj_start = im_to_first_box[i]
@@ -433,7 +433,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
 
         boxes_i = all_boxes[i_obj_start : i_obj_end + 1, :]
         gt_classes_i = all_labels[i_obj_start : i_obj_end + 1]
-        #gt_attributes_i = all_attributes[i_obj_start : i_obj_end + 1, :]
+        gt_attributes_i = all_attributes[i_obj_start : i_obj_end + 1, :]
 
         if i_rel_start >= 0:
             predicates = _relation_predicates[i_rel_start : i_rel_end + 1]
@@ -462,7 +462,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
 
         boxes.append(boxes_i)
         gt_classes.append(gt_classes_i)
-        #gt_attributes.append(gt_attributes_i)
+        gt_attributes.append(gt_attributes_i)
         relationships.append(rels)
 
-    return split_mask, boxes, gt_classes, relationships # gt_attributes,
+    return split_mask, boxes, gt_classes,  gt_attributes, relationships #

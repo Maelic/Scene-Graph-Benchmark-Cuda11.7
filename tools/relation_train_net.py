@@ -32,6 +32,14 @@ from sgg_benchmark.utils.miscellaneous import mkdir, save_config
 from sgg_benchmark.utils.metric_logger import MetricLogger
 from sgg_benchmark.utils.parser import default_argument_parser
 
+# See if we can use apex.DistributedDataParallel instead of the torch default,
+# and enable mixed-precision via apex.amp
+try:
+    from apex import amp
+except ImportError:
+    raise ImportError('Use APEX for multi-precision via apex.amp')
+
+
 def train(cfg, logger, args):
     available_metrics = {"mR": "_mean_recall", "R": "_recall", "zR": "_zeroshot_recall", "ng-zR": "_ng_zeroshot_recall", "ng-R": "_recall_nogc", "ng-mR": "_ng_mean_recall", "topA": ["_accuracy_hit", "_accuracy_count"]}
 
@@ -83,8 +91,12 @@ def train(cfg, logger, args):
     logger_step(logger, 'Building optimizer and shcedule')
 
     # Initialize mixed-precision training
-    use_amp = True if cfg.DTYPE == "float16" else False
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    # use_amp = True if cfg.DTYPE == "float16" else False
+    # scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+
+    use_mixed_precision = cfg.DTYPE == "float16"
+    amp_opt_level = 'O1' if use_mixed_precision else 'O0'
+    model, optimizer = amp.initialize(model, optimizer, opt_level=amp_opt_level)
 
     if args['distributed']:
         model = torch.nn.parallel.DistributedDataParallel(
@@ -157,8 +169,8 @@ def train(cfg, logger, args):
         targets = [target.to(device) for target in targets]
 
         # Note: If mixed precision is not used, this ends up doing nothing
-        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
-            loss_dict = model(images, targets)
+        #with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
+        loss_dict = model(images, targets)
 
         losses = sum(loss for loss in loss_dict.values())
 
@@ -170,12 +182,15 @@ def train(cfg, logger, args):
         if args['use_wandb']:
             wandb.log({"loss": losses_reduced}, step=iteration)
 
+        optimizer.zero_grad()
+
         # Scaling loss
-        scaler.scale(losses).backward()
+        with amp.scale_loss(losses, optimizer) as scaled_losses:
+            scaled_losses.backward()
         
         # Unscale the gradients of optimizer's assigned params in-place before cliping
         # from https://pytorch.org/docs/stable/notes/amp_examples.html
-        scaler.unscale_(optimizer)
+        #scaler.unscale_(optimizer)
 
         # add clip_grad_norm from MOTIFS, tracking gradient, used for debug
         verbose = (iteration % cfg.SOLVER.PRINT_GRAD_FREQ) == 0 or print_first_grad # print grad or not
@@ -184,10 +199,10 @@ def train(cfg, logger, args):
 
         optimizer.step()
 
-        scaler.step(optimizer)
-        scaler.update()
+        # scaler.step(optimizer)
+        # scaler.update()
 
-        optimizer.zero_grad()
+        #optimizer.zero_grad()
 
         batch_time = time.time() - end
         end = time.time()
@@ -228,25 +243,26 @@ def train(cfg, logger, args):
             mode = get_mode(cfg)
             results = val_result[mode+metric_to_track]
             metric = float(np.mean(list(results.values())))
-            logger.info("Average validation Result for %d: %.4f" % (cfg.SOLVER.METRIC_TO_TRACK, metric))
+            logger.info("Average validation Result for %s: %.4f" % (cfg.METRIC_TO_TRACK, metric))
             
             if metric > best_metric:
                 best_epoch = iteration
-                best_metric = val_result
+                best_metric = metric
                 if args['save_best']:
                     to_remove = best_checkpoint
                     checkpointer.save("best_model_{:07d}".format(iteration), **arguments)
-                    best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "model_{:07d}".format(iteration))
+                    best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "best_model_{:07d}".format(iteration))
 
                     # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
                     if to_remove is not None:
-                        os.remove(to_remove)
+                        to_remove = to_remove+'.pth'
+                        os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove))
                 
-            logger.info("Now best epoch in %d is : %d, num is %.4f" % (cfg.SOLVER.METRIC_TO_TRACK+"@k", best_epoch, best_metric))
+            logger.info("Now best epoch in {} is : {}, with value is {}".format(cfg.METRIC_TO_TRACK+"@k", best_epoch, best_metric))
             
             if args['use_wandb']:
                 for k, v in results.items():
-                    res = cfg.SOLVER.METRIC_TO_TRACK+"@"+str(k)
+                    res = cfg.METRIC_TO_TRACK+"@"+str(k)
                     wandb.log({res: v}, step=iteration)            
  
         # scheduler should be called after optimizer.step() in pytorch>=1.1.0
@@ -399,11 +415,10 @@ def main():
         )
         synchronize()
 
-    for arg in args.opts:
-        if "GCL_SETTING" in arg:
-            cfg.set_new_allowed(True) # recursively update set_new_allowed to allow merging of configs and subconfigs
-            cfg.merge_from_other_cfg(cfg_GCL)
-            break
+    if "GLOBAL_SETTING.GCL_SETTING.GROUP_SPLIT_MODE" in [arg for arg in args.opts]:
+        cfg.set_new_allowed(True) # recursively update set_new_allowed to allow merging of configs and subconfigs
+        cfg.merge_from_other_cfg(cfg_GCL)
+
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     if args.task:
