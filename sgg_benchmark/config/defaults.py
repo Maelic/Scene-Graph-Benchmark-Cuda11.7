@@ -29,7 +29,7 @@ _C.MODEL.KEYPOINT_ON = False
 _C.MODEL.ATTRIBUTE_ON = False
 _C.MODEL.RELATION_ON = False
 _C.MODEL.DEVICE = "cuda"
-_C.MODEL.META_ARCHITECTURE = "GeneralizedRCNN"
+_C.MODEL.META_ARCHITECTURE = "GeneralizedRCNN" # GeneralizedYOLO
 _C.MODEL.CLS_AGNOSTIC_BBOX_REG = False
 
 # If the WEIGHT starts with a catalog://, like :R-50, the code will look for
@@ -105,8 +105,8 @@ _C.MODEL.BACKBONE = CN()
 # The string must match a function that is imported in modeling.model_builder
 # (e.g., 'FPN.add_fpn_ResNet101_conv5_body' to specify a ResNet-101-FPN
 # backbone)
-_C.MODEL.BACKBONE.CONV_BODY = "R-50-C4"
-
+_C.MODEL.BACKBONE.TYPE = "R-50-C4" # Can be yolov8 or yolov5 or VGG-16 or R-50-C4 or R-50-C5 or R-101-C4 or R-101-C5 or R-50-FPN or R-101-FPN or R-152-FPN
+_C.MODEL.BACKBONE.EXTRA_CONFIG = ""
 # Add StopGrad at a specified stage so the bottom layers are frozen
 _C.MODEL.BACKBONE.FREEZE_CONV_BODY_AT = 2
 
@@ -129,6 +129,14 @@ _C.MODEL.GROUP_NORM.DIM_PER_GP = -1
 _C.MODEL.GROUP_NORM.NUM_GROUPS = 32
 # GroupNorm's small constant in the denominator
 _C.MODEL.GROUP_NORM.EPSILON = 1e-5
+
+
+# ---------------------------------------------------------------------------- #
+# YOLO options
+# ---------------------------------------------------------------------------- #
+_C.MODEL.YOLO = CN()
+_C.MODEL.YOLO.SIZE = "small" # Can be nano, small, medium or large
+_C.MODEL.YOLO.IMG_SIZE = 512
 
 
 # ---------------------------------------------------------------------------- #
@@ -345,6 +353,7 @@ _C.MODEL.ROI_RELATION_HEAD.REL_PROP = [0.01858, 0.00057, 0.00051, 0.00109, 0.001
 
 _C.MODEL.VGG = CN()
 _C.MODEL.VGG.VGG16_OUT_CHANNELS= 512
+
 # ---------------------------------------------------------------------------- #
 # ResNe[X]t options (ResNets = {ResNet, ResNeXt}
 # Note that parts of a resnet may be used for both the backbone and the head

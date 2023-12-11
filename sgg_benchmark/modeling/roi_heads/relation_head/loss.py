@@ -160,7 +160,25 @@ class FocalLoss(nn.Module):
         if self.size_average: return loss.mean()
         else: return loss.sum()
 
+class InformativeLoss(nn.Module):
+    def __init__(self, gamma=0, alpha=None, size_average=True):
+        self.gamma = gamma
+        self.alpha = alpha
+        self.size_average = size_average
 
+    def forward(self, input, target):
+        target = target.view(-1)
+
+        logpt = F.log_softmax(input)
+        logpt = logpt.index_select(-1, target).diag()
+        logpt = logpt.view(-1)
+        pt = logpt.exp()
+
+        logpt = logpt * self.alpha * (target > 0).float() + logpt * (1 - self.alpha) * (target <= 0).float()
+
+        loss = -1 * (1-pt)**self.gamma * logpt
+        if self.size_average: return loss.mean()
+        else: return loss.sum()
 
 def make_roi_relation_loss_evaluator(cfg):
 

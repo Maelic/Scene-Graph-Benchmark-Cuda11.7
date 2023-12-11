@@ -8,7 +8,25 @@ from sgg_benchmark.modeling.make_layers import conv_with_kaiming_uniform
 from . import fpn as fpn_module
 from . import resnet
 from . import vgg
+from . import yolov8
 
+@registry.BACKBONES.register("yolov8")
+def build_yolov8_backbone(cfg):
+    model_size = cfg.MODEL.YOLOV8.SIZE
+    model = yolov8(cfg.MODEL.BACKBONE.EXTRA_CONFIG, model_size)
+    body = model.model.model[:9] # according to https://github.com/ultralytics/ultralytics/issues/189 this is the body
+    head = model.model.model[9:] # according to https://github.com/ultralytics/ultralytics/issues/189 this is the head
+    model = nn.Sequential(OrderedDict([("body", body), ("head", head)]))
+    return model
+
+@registry.BACKBONES.register("yolov5")
+def build_yolov5_backbone(cfg):
+    model_size = cfg.MODEL.YOLOV8.SIZE
+    model = yolov8(cfg, model_size)
+    body = model.model.model[:9]
+    head = model.model.model[9:]
+    model = nn.Sequential(OrderedDict([("body", body), ("head", head)]))
+    return model
 
 @registry.BACKBONES.register("VGG-16")
 def build_vgg_fpn_backbone(cfg):
@@ -82,8 +100,9 @@ def build_resnet_fpn_p3p7_backbone(cfg):
 
 
 def build_backbone(cfg):
-    assert cfg.MODEL.BACKBONE.CONV_BODY in registry.BACKBONES, \
-        "cfg.MODEL.BACKBONE.CONV_BODY: {} are not registered in registry".format(
-            cfg.MODEL.BACKBONE.CONV_BODY
-        )
-    return registry.BACKBONES[cfg.MODEL.BACKBONE.CONV_BODY](cfg)
+    if cfg.MODEL.BACKBONE.TYPE is not None:
+        assert cfg.MODEL.BACKBONE.TYPE in registry.BACKBONES, \
+            "cfg.MODEL.BACKBONE.TYPE: {} are not registered in registry".format(
+                cfg.MODEL.BACKBONE.TYPE
+            )
+        return registry.BACKBONES[cfg.MODEL.BACKBONE.TYPE](cfg)

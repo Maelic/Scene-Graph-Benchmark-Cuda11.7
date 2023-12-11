@@ -108,9 +108,9 @@ class PostProcessor(nn.Module):
             if not self.custum_eval:
                 gt_labels = boxes[i].get_field('labels')[orig_inds]
         
-                gt_attributes = boxes[i].get_field('attributes')[orig_inds]
+                # gt_attributes = boxes[i].get_field('attributes')[orig_inds]
         
-                boxlist.add_field('attributes', gt_attributes)
+                # boxlist.add_field('attributes', gt_attributes)
 
                 boxlist.add_field('labels', gt_labels)
 

@@ -17,7 +17,7 @@ BOX_SCALE = 1024  # Scale at which we have the boxes
 class VGDataset(torch.utils.data.Dataset):
 
     def __init__(self, split, img_dir, roidb_file, dict_file, image_file, zeroshot_file, transforms=None,
-                filter_empty_rels=True, num_im=-1, num_val_im=5000,
+                filter_empty_rels=True, num_im=13223, num_val_im=5000,
                 filter_duplicate_rels=True, filter_non_overlap=True, flip_aug=False, custom_eval=False, custom_path=''):
         """
         Torch dataset for VisualGenome
@@ -49,6 +49,7 @@ class VGDataset(torch.utils.data.Dataset):
         self.filter_non_overlap = filter_non_overlap and self.split == 'train'
         self.filter_duplicate_rels = filter_duplicate_rels and self.split == 'train'
         self.transforms = transforms
+        num_im=13223
 
         self.ind_to_classes, self.ind_to_predicates , self.ind_to_attributes = load_info(dict_file)
 
@@ -66,7 +67,10 @@ class VGDataset(torch.utils.data.Dataset):
             self.filenames, self.img_info = load_image_filenames(img_dir, image_file) # length equals to split_mask
             self.filenames = [self.filenames[i] for i in np.where(self.split_mask)[0]]
             self.img_info = [self.img_info[i] for i in np.where(self.split_mask)[0]]
-
+            
+            # self.filenames = self.filenames[len(self.filenames)//2:]
+            # self.img_info = self.img_info[len(self.img_info)//2:]
+            
             assert(len(self.filenames) == len(self.gt_boxes) == len(self.gt_classes) == len(self.relationships) == len(self.img_info))
             final_dict = []
             for file, info, boxes, classes, rels in zip(self.filenames, self.img_info, self.gt_boxes, self.gt_classes, self.relationships):
@@ -480,4 +484,17 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
         gt_attributes.append(gt_attributes_i)
         relationships.append(rels)
 
+    # # only return first half of the data
+    # if split == 'train':
+    #     split_mask = split_mask[:len(split_mask)//2]
+    #     boxes = boxes[:len(boxes)//2]
+    #     gt_classes = gt_classes[:len(gt_classes)//2]
+    #     gt_attributes = gt_attributes[:len(gt_attributes)//2]
+    #     relationships = relationships[:len(relationships)//2]
+    # else:
+    #     split_mask = split_mask[len(split_mask)//2:]
+    #     boxes = boxes[len(boxes)//2:]
+    #     gt_classes = gt_classes[len(gt_classes)//2:]
+    #     gt_attributes = gt_attributes[len(gt_attributes)//2:]
+    #     relationships = relationships[len(relationships)//2:]
     return split_mask, boxes, gt_classes, gt_attributes, relationships 

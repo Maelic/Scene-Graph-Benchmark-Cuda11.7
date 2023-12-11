@@ -89,9 +89,11 @@ sgg_benchmark/modeling/backbone/fbnet_modeldef.py
 sgg_benchmark/modeling/backbone/fpn.py
 sgg_benchmark/modeling/backbone/resnet.py
 sgg_benchmark/modeling/backbone/vgg.py
+sgg_benchmark/modeling/backbone/yolov8.py
 sgg_benchmark/modeling/detector/__init__.py
 sgg_benchmark/modeling/detector/detectors.py
 sgg_benchmark/modeling/detector/generalized_rcnn.py
+sgg_benchmark/modeling/detector/generalized_yolo.py
 sgg_benchmark/modeling/roi_heads/__init__.py
 sgg_benchmark/modeling/roi_heads/roi_heads.py
 sgg_benchmark/modeling/roi_heads/attribute_head/__init__.py
@@ -179,3 +181,15 @@ sgg_benchmark/utils/model_zoo.py
 sgg_benchmark/utils/parser.py
 sgg_benchmark/utils/registry.py
 sgg_benchmark/utils/timer.py
+tests/test_backbones.py
+tests/test_box_coder.py
+tests/test_configs.py
+tests/test_data_samplers.py
+tests/test_detectors.py
+tests/test_fbnet.py
+tests/test_feature_extractors.py
+tests/test_metric_logger.py
+tests/test_nms.py
+tests/test_predictors.py
+tests/test_rpn_heads.py
+tests/test_segmentation_mask.py
