@@ -12,9 +12,9 @@ class DatasetCatalog(object):
     elif os.path.exists("/home/maelic/Documents/PhD/Datasets/VisualGenome/"): # for local machine
         DATA_DIR = "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/"
         IMG_DIR = "/home/maelic/Documents/PhD/Datasets/VisualGenome/"
-    elif os.path.exists("/home/maelic/Documents/Datasets/VG"): # for local machine
-        DATA_DIR = "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/"
-        IMG_DIR = "/home/maelic/Documents/Datasets/VG/"
+    #elif os.path.exists("/home/maelic/Documents/Datasets/VG"): # for local machine
+    DATA_DIR = "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/"
+    IMG_DIR = "/home/maelic/Documents/Datasets/VG/"
     DATASETS = {
         "VG_stanford_filtered": {
             "img_dir": IMG_DIR+"VG_100K",
@@ -64,6 +64,13 @@ class DatasetCatalog(object):
             "dict_file": DATA_DIR+"datasets/IndoorVG/final/VG-SGG-dicts-with-attri.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
             "zeroshot_file": DATA_DIR+"datasets/IndoorVG/final/zero_shot_triplets.pytorch",
+        },
+        "VG178": {
+            "img_dir":  "/mnt/c/Users/maelic/Documents/VG_100K",
+            "roidb_file": "/mnt/c/Users/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/vg178/VG-SGG.h5",
+            "dict_file": "/mnt/c/Users/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/vg178/VG-SGG-dicts.json",
+            "image_file": "/mnt/c/Users/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/vg178/image_data.json",
+            "zeroshot_file": "/mnt/c/Users/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/datasets/vg178/zero_shot_triplets.pytorch",
         },
     }
 

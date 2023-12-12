@@ -47,12 +47,10 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
             results_dict.update(
                 {img_id: result for img_id, result in zip(image_ids, output)}
             )
-            detected_sgg = custom_sgg_post_precessing(results_dict)
-            clean_graph = generate_detect_sg(detected_sgg, vg_dict)
+            #detected_sgg = custom_sgg_post_precessing(results_dict)
+            #clean_graph = generate_detect_sg(detected_sgg, vg_dict)
             # save the detected sgg to npy file
-            np.save(os.path.join(save_dir, 'sgg_{}.npy'.format(image_id)), clean_graph)
-            
-        del output
+            #np.save(os.path.join(save_dir, 'sgg_{}.npy'.format(image_id)), clean_graph)
     torch.cuda.empty_cache()
     return results_dict
 

@@ -72,6 +72,7 @@ def train(cfg, local_rank, distributed, logger):
         mode='val',
         is_distributed=distributed,
     )
+    print(val_data_loaders)
 
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD
 
@@ -164,8 +165,8 @@ def train(cfg, local_rank, distributed, logger):
                 best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "best_model_{:07d}".format(iteration))
 
                 # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
-                if to_remove is not None:
-                    os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove+".pth"))
+                #if to_remove is not None:
+                #    os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove+".pth"))
                 
             logger.info("Now best epoch in mAP is : {}, with value {}".format(best_epoch, best_metric))
             
