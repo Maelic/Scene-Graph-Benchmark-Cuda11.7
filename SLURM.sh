@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=sgg_motifs_tde_1 # nom du job
-#SBATCH --output=$WORK/job_logs/sgg_motifs_tde_1%j.out # fichier de sortie (%j = job ID)
-#SBATCH --error=$WORK/job_logs/sgg_motifs_tde_1%j.err # fichier d’erreur (%j = job ID)
+#SBATCH --output=job_logs/sgg_motifs_tde_1%j.out # fichier de sortie (%j = job ID)
+#SBATCH --error=job_logs/sgg_motifs_tde_1%j.err # fichier d’erreur (%j = job ID)
 #SBATCH --constraint=v100-32g # demander des GPU a 16 Go de RAM
 #SBATCH --nodes=1 # reserver 1 nœud
 #SBATCH --ntasks=1 # reserver 1 taches (ou processus)
@@ -13,8 +13,9 @@
 #SBATCH --account=gtb@v100
 
 module purge # nettoyer les modules herites par defaut
+source ~/.bashrc
 conda deactivate # desactiver les environnements herites par defaut
-conda activate train # activer l’environnement virtuel conda
+conda activate train
 export WANDB_MODE=offline
 
 set -x # activer l’echo des commandes
