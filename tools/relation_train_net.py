@@ -14,6 +14,7 @@ import datetime
 import numpy as np
 
 import torch
+import torch.distributed as dist
 
 from sgg_benchmark.config import cfg
 from sgg_benchmark.config.defaults_GCL import _C as cfg_GCL
@@ -295,6 +296,8 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     dataset_names = cfg.DATASETS.VAL
     val_result = []
     for dataset_name, val_data_loader in zip(dataset_names, val_data_loaders):
+        # shrink data_loader to only 100 samples
+        val_data_loader = torch.utils.data.DataLoader(val_data_loader.dataset, batch_size=100, shuffle=False, num_workers=cfg.DATALOADER.NUM_WORKERS, collate_fn=val_data_loader.collate_fn)
         dataset_result = inference(
                             cfg,
                             model,
@@ -310,30 +313,15 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
                         )
         synchronize()
 
-        val_result.append(dataset_result)
-
-    # VG has only one val dataset
-    dataset_result = val_result[0]
-    if distributed:
-        gathered_result = all_gather(torch.tensor(dataset_result).cpu())
-        gathered_result = [t.view(-1) for t in gathered_result]
-        print(gathered_result)
-        # gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
-        # valid_result = gathered_result[gathered_result>=0]
-        # val_result = float(valid_result.mean())
-        # del gathered_result, valid_result
-        # torch.cuda.empty_cache()
-        for k1, v1 in dataset_result.items():
-            for k2, v2 in v1.items():
-                dataset_result[k1][k2] = torch.distributed.all_reduce(torch.tensor(np.mean(v2)).to(device).unsqueeze(0)).item() / torch.distributed.get_world_size()
-    else:
-        for k1, v1 in dataset_result.items():
-            for k2, v2 in v1.items():
-                dataset_result[k1][k2] = np.mean(v2)
-
     # support for multi gpu distributed testing
-   
-    return dataset_result
+    gathered_result = all_gather(torch.tensor(dataset_result).cpu())
+    gathered_result = [t.view(-1) for t in gathered_result]
+    gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
+    valid_result = gathered_result[gathered_result>=0]
+    val_result = float(valid_result.mean())
+    del gathered_result, valid_result
+    torch.cuda.empty_cache()
+    return val_result
 
 def run_test(cfg, model, distributed, logger):
     if distributed:

@@ -191,7 +191,16 @@ def do_vg_evaluation(
     if "relations" in iou_types:
         if output_folder:
             torch.save(result_dict, os.path.join(output_folder, 'result_dict.pytorch'))
-        return result_dict
+        recall = float(np.mean(result_dict[mode + '_recall'][100]))
+        mrecall = float(result_dict[mode + '_mean_recall'][100])
+        if cfg.METRIC_TO_TRACK == "R":
+            return recall
+        elif cfg.METRIC_TO_TRACK == "mR":
+            return mrecall
+        elif cfg.METRIC_TO_TRACK == "F":
+            return 2/(1/recall+1/mrecall)
+        else:
+            assert False, "validation metric not defined"
     elif "bbox" in iou_types:
         return float(mAp)
     else:
