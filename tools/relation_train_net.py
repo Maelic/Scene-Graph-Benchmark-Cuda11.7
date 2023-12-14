@@ -224,14 +224,11 @@ def train(cfg, logger, args):
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
             logger.info("Start validating")
             val_result = run_val(cfg, model, val_data_loaders, args['distributed'], logger)
-            mode = get_mode(cfg)
-            results = val_result[mode+metric_to_track]
-            metric = float(np.mean(list(results.values())))
-            logger.info("Average validation Result for %s: %.4f" % (cfg.METRIC_TO_TRACK, metric))
+            logger.info("Average validation Result for %s: %.4f" % (cfg.METRIC_TO_TRACK+"@k", val_result))
             
-            if metric > best_metric:
+            if val_result > best_metric:
                 best_epoch = iteration
-                best_metric = metric
+                best_metric = val_result
                 if args['save_best']:
                     to_remove = best_checkpoint
                     checkpointer.save("best_model_{:07d}".format(iteration), **arguments)
@@ -244,15 +241,13 @@ def train(cfg, logger, args):
             logger.info("Now best epoch in {} is : {}, with value is {}".format(cfg.METRIC_TO_TRACK+"@k", best_epoch, best_metric))
             
             if args['use_wandb']:
-                for k, v in results.items():
-                    res = cfg.METRIC_TO_TRACK+"@"+str(k)
-                    wandb.log({res: v}, step=iteration)            
+                wandb.log({cfg.METRIC_TO_TRACK+"@k": val_result}, step=iteration)            
  
         # scheduler should be called after optimizer.step() in pytorch>=1.1.0
         # https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
         if cfg.SOLVER.SCHEDULE.TYPE == "WarmupReduceLROnPlateau":
             # Using mean recall instead of traditionnal recall for scheduler
-            scheduler.step(mean_recall, epoch=iteration)
+            scheduler.step(val_result, epoch=iteration)
             if scheduler.stage_count >= cfg.SOLVER.SCHEDULE.MAX_DECAY_STEP:
                 logger.info("Trigger MAX_DECAY_STEP at iteration {}.".format(iteration))
                 break
@@ -297,7 +292,6 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     val_result = []
     for dataset_name, val_data_loader in zip(dataset_names, val_data_loaders):
         # shrink data_loader to only 100 samples
-        val_data_loader = torch.utils.data.DataLoader(val_data_loader.dataset, batch_size=100, shuffle=False, num_workers=cfg.DATALOADER.NUM_WORKERS, collate_fn=val_data_loader.collate_fn)
         dataset_result = inference(
                             cfg,
                             model,
