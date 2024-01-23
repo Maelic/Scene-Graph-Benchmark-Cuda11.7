@@ -16,7 +16,7 @@ BOX_SCALE = 1024  # Scale at which we have the boxes
 
 class VGDataset(torch.utils.data.Dataset):
 
-    def __init__(self, split, img_dir, roidb_file, dict_file, image_file, zeroshot_file, transforms=None,
+    def __init__(self, split, img_dir, roidb_file, dict_file, image_file, zeroshot_file, informative_file=None, transforms=None,
                 filter_empty_rels=True, num_im=-1, num_val_im=5000,
                 filter_duplicate_rels=True, filter_non_overlap=True, flip_aug=False, custom_eval=False, custom_path=''):
         """
@@ -27,6 +27,7 @@ class VGDataset(torch.utils.data.Dataset):
             roidb_file:  HDF5 containing the GT boxes, classes, and relationships
             dict_file: JSON Contains mapping of classes/relationships to words
             image_file: HDF5 containing image filenames
+            informative_file: JSON containing the GT informative SGs extracted from captions
             filter_empty_rels: True if we filter out images without relationships between
                              boxes. One might want to set this to false if training a detector.
             filter_duplicate_rels: Whenever we see a duplicate relationship we'll sample instead
@@ -50,7 +51,9 @@ class VGDataset(torch.utils.data.Dataset):
         self.filter_duplicate_rels = filter_duplicate_rels and self.split == 'train'
         self.transforms = transforms
 
-        self.ind_to_classes, self.ind_to_predicates ,  = load_info(dict_file) # self.ind_to_attributes
+        self.save_final_dict = False
+
+        self.ind_to_classes, self.ind_to_predicates = load_info(dict_file) # self.ind_to_attributes
         self.categories = {i : self.ind_to_classes[i] for i in range(len(self.ind_to_classes))}
 
         self.custom_eval = custom_eval
@@ -66,16 +69,22 @@ class VGDataset(torch.utils.data.Dataset):
             self.filenames = [self.filenames[i] for i in np.where(self.split_mask)[0]]
             self.img_info = [self.img_info[i] for i in np.where(self.split_mask)[0]]
 
+            if informative_file is not None:
+                print("Loading informative gt scene graphs from {}".format(informative_file))
+                self.informative_graphs = json.load(open(informative_file, 'r'))
+                print(len(self.informative_graphs), len(self.img_info))
+            else:
+                self.informative_graphs = {img['image_id']: [] for img in self.img_info}
+
             assert(len(self.filenames) == len(self.gt_boxes) == len(self.gt_classes) == len(self.relationships) == len(self.img_info))
-            final_dict = []
-            for file, info, boxes, classes, rels in zip(self.filenames, self.img_info, self.gt_boxes, self.gt_classes, self.relationships):
-                final_dict.append({'width': info['width'], 'height': info['height'], 'img_path': file, 'boxes': np.array(boxes, dtype=np.float32), 'labels': np.array(classes), 'relations': np.array(rels)})
 
-            # to pickle
-            import pickle
-            with open('vg_sup_data.pk', 'wb') as f:
-                pickle.dump(final_dict, f)
+            if self.save_final_dict:
+                final_dict = []
+                for file, info, boxes, classes, rels, informative_rels in zip(self.filenames, self.img_info, self.gt_boxes, self.gt_classes, self.relationships, self.informative_graphs):
+                    final_dict.append({'width': info['width'], 'height': info['height'], 'img_path': file, 'boxes': np.array(boxes, dtype=np.float32), 'labels': np.array(classes), 'relations': np.array(rels), 'informative_rels': np.array(informative_rels)})
 
+                with open('final_dict.json', 'w') as f:
+                    json.dump(final_dict, f)
 
     def __getitem__(self, index):
         #if self.split == 'train':
@@ -132,14 +141,14 @@ class VGDataset(torch.utils.data.Dataset):
             for file_name in tqdm(os.listdir(path)):
                 self.custom_files.append(os.path.join(path, file_name))
                 img = Image.open(os.path.join(path, file_name)).convert("RGB")
-                self.img_info.append({'width':int(img.width), 'height':int(img.height)})
+                self.img_info.append({'width':int(img.width), 'height':int(img.height), 'image_id':str(file_name.split('.')[0])})
         # Expecting a list of paths in a json file
         if os.path.isfile(path):
             file_list = json.load(open(path))
             for file in tqdm(file_list):
                 self.custom_files.append(file)
                 img = Image.open(file).convert("RGB")
-                self.img_info.append({'width': int(img.width), 'height': int(img.height)})
+                self.img_info.append({'width': int(img.width), 'height': int(img.height), 'image_id':str(file_name.split('.')[0])})
 
     def get_img_info(self, index):
         # WARNING: original image_file.json has several pictures with false image size
@@ -149,7 +158,7 @@ class VGDataset(torch.utils.data.Dataset):
         # correct_img_info(self.img_dir, self.image_file)
         return self.img_info[index]
 
-    def get_groundtruth(self, index, evaluation=False, flip_img=False):
+    def get_groundtruth(self, index, evaluation=False, flip_img=False, informative=False):
         img_info = self.get_img_info(index)
         w, h = img_info['width'], img_info['height']
         # important: recover original box from BOX_SCALE
@@ -190,6 +199,8 @@ class VGDataset(torch.utils.data.Dataset):
         if evaluation:
             target = target.clip_to_image(remove_empty=False)
             target.add_field("relation_tuple", torch.LongTensor(relation)) # for evaluation
+            # if self.informative_graphs is not None:
+            target.add_field("informative_rels", self.informative_graphs[str(img_info['image_id'])])
             return target
         else:
             target = target.clip_to_image(remove_empty=True)
@@ -299,8 +310,6 @@ def load_info(dict_file, add_bg=True):
     Loads the file containing the visual genome label meanings
     """
     info = json.load(open(dict_file, 'r'))
-    if "attribute_to_idx" in info.keys() and add_bg:
-        info['attribute_to_idx']['__background__'] = 0
 
     if add_bg:
         info['label_to_idx']['__background__'] = 0
@@ -314,14 +323,12 @@ def load_info(dict_file, add_bg=True):
     ind_to_predicates = sorted(predicate_to_ind, key=lambda k: predicate_to_ind[k])
     #ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
 
-    return ind_to_classes, ind_to_predicates #, ind_to_attributes
-
-    if "attribute_to_idx" in info.keys():
-        attribute_to_ind = info['attribute_to_idx']
-        ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
-        return ind_to_classes, ind_to_predicates, ind_to_attributes
+    # if "attribute_to_idx" in info.keys():
+    #     attribute_to_ind = info['attribute_to_idx']
+    #     ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
+    #     return ind_to_classes, ind_to_predicates, ind_to_attributes
     
-    return ind_to_classes, ind_to_predicates, None
+    return ind_to_classes, ind_to_predicates
 
 def load_image_filenames(img_dir, image_file):
     """

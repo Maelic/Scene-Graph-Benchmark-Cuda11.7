@@ -21,7 +21,9 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
     results_dict = {}
     cpu_device = torch.device("cpu")
     torch.cuda.empty_cache()
-    for _, batch in enumerate(tqdm(data_loader)):
+    for i, batch in enumerate(tqdm(data_loader, desc='Evaluating', total=10000)):
+        if i == 10000:
+            break
         with torch.no_grad():
             images, targets, image_ids = batch
             targets = [target.to(device) for target in targets]
@@ -138,8 +140,9 @@ def inference(
         expected_results_sigma_tol=4,
         output_folder=None,
         logger=None,
+        informative=False,
 ):
-    load_prediction_from_cache = cfg.TEST.ALLOW_LOAD_FROM_CACHE and output_folder is not None and os.path.exists(os.path.join(output_folder, "eval_results.pytorch"))
+    load_prediction_from_cache = cfg.TEST.ALLOW_LOAD_FROM_CACHE and output_folder is not None and os.path.exists(os.path.join(output_folder, "predictions.pth"))
     # convert to a torch.device for efficiency
     device = torch.device(device)
     num_devices = get_world_size()
@@ -156,7 +159,9 @@ def inference(
     inference_timer = Timer()
     total_timer.tic()
     if load_prediction_from_cache:
-        predictions = torch.load(os.path.join(output_folder, "eval_results.pytorch"), map_location=torch.device("cpu"))['predictions']
+        pred_path = "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/checkpoints/original_VG150/upload_causal_motif_sgdet/inference/VG_stanford_filtered_with_attribute_test/predictions.pth"
+        predictions = torch.load(pred_path, map_location=torch.device("cpu"))
+        logger.info("Loaded predictions from cache in {}".format(pred_path))
     else:
         predictions = compute_on_dataset(model, data_loader, device, synchronize_gather=cfg.TEST.RELATION.SYNC_GATHER, timer=inference_timer)
     # wait for all processes to complete before measuring the time
@@ -189,9 +194,14 @@ def inference(
     extra_args = dict(
         box_only=box_only,
         iou_types=iou_types,
+        informative=informative,
         expected_results=expected_results,
         expected_results_sigma_tol=expected_results_sigma_tol,
     )
+
+    # save preditions to .pth file
+    if output_folder is not None and not load_prediction_from_cache:
+        torch.save(predictions, os.path.join(output_folder, "predictions.pth"))
 
     if cfg.TEST.CUSTUM_EVAL:
         detected_sgg = custom_sgg_post_precessing(predictions)

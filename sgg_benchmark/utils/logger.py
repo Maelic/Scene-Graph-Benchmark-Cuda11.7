@@ -14,7 +14,7 @@ def logger_step(logger, info):
     current_step += 1
     logger.info('#'*20+' Step '+str(current_step)+': '+info+' '+'#'*20)
 
-def setup_logger(name, save_dir, distributed_rank, filename="log.txt", steps=False, verbose=False):
+def setup_logger(name, save_dir=None, distributed_rank=0, filename="log.txt", steps=False, verbose=False):
     global use_step
     use_step = steps
     try:
@@ -23,7 +23,7 @@ def setup_logger(name, save_dir, distributed_rank, filename="log.txt", steps=Fal
         logger.remove()
         if distributed_rank > 0:
             return logger
-        if save_dir:
+        if save_dir is not None:
             logger.add(os.path.join(save_dir, filename),  format='{time:YYYY-MM-DD HH:mm:ss.SSS} | <level>{level: <8}</level> | {name}{function}{line} - <level>{message}</level>', colorize=False, level=level)
         
         logger.add(sys.stdout, format='<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>', colorize=True, level=level)

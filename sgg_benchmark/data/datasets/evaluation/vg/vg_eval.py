@@ -12,7 +12,7 @@ from sgg_benchmark.data import get_dataset_statistics
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 from sgg_benchmark.utils.miscellaneous import intersect_2d, argsort_desc, bbox_overlaps
-from sgg_benchmark.data.datasets.evaluation.vg.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall
+from sgg_benchmark.data.datasets.evaluation.vg.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall, SGInformativeRecall
 from sgg_benchmark.config.paths_catalog import DatasetCatalog
 
 def do_vg_evaluation(
@@ -23,6 +23,7 @@ def do_vg_evaluation(
     output_folder,
     logger,
     iou_types,
+    informative=False,
 ):
     # get zeroshot triplet
     if "relations" in iou_types:
@@ -58,7 +59,7 @@ def do_vg_evaluation(
         gt = dataset.get_groundtruth(image_id, evaluation=True)
         groundtruths.append(gt)
 
-    save_output(output_folder, groundtruths, predictions, dataset)
+    #save_output(output_folder, groundtruths, predictions, dataset)
     
     result_str = '\n' + '=' * 100 + '\n'
     if "bbox" in iou_types:
@@ -155,6 +156,11 @@ def do_vg_evaluation(
         eval_ng_mean_recall.register_container(mode)
         evaluator['eval_ng_mean_recall'] = eval_ng_mean_recall
 
+        if informative:
+            eval_informative_recall = SGInformativeRecall(result_dict)
+            eval_informative_recall.register_container(mode)
+            evaluator['eval_informative_recall'] = eval_informative_recall
+
         # prepare all inputs
         global_container = {}
         global_container['zeroshot_triplet'] = zeroshot_triplet
@@ -165,9 +171,14 @@ def do_vg_evaluation(
         global_container['iou_thres'] = iou_thres
         #global_container['attribute_on'] = attribute_on
         #global_container['num_attributes'] = num_attributes
+
+        if informative:
+            stats = dataset.get_statistics()
+            global_container['ind_to_predicates'] = stats['rel_classes']
+            global_container['ind_to_classes'] = stats['obj_classes']
         
-        for groundtruth, prediction in zip(groundtruths, predictions):
-            evaluate_relation_of_one_image(groundtruth, prediction, global_container, evaluator)
+        for groundtruth, prediction in tqdm(zip(groundtruths, predictions), desc='Evaluating', total=len(groundtruths)):
+            evaluate_relation_of_one_image(groundtruth, prediction, global_container, evaluator, informative=informative)
         
         # calculate mean recall
         eval_mean_recall.calculate_mean_recall(mode)
@@ -180,6 +191,8 @@ def do_vg_evaluation(
         result_str += eval_ng_zeroshot_recall.generate_print_string(mode)
         result_str += eval_mean_recall.generate_print_string(mode)
         result_str += eval_ng_mean_recall.generate_print_string(mode)
+        if informative:
+            result_str += eval_informative_recall.generate_print_string(mode)
         
         if cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
             result_str += eval_pair_accuracy.generate_print_string(mode)
@@ -235,7 +248,7 @@ def save_output(output_folder, groundtruths, predictions, dataset):
 
 
 
-def evaluate_relation_of_one_image(groundtruth, prediction, global_container, evaluator):
+def evaluate_relation_of_one_image(groundtruth, prediction, global_container, evaluator, informative=False):
     """
     Returns:
         pred_to_gt: Matching from predicate to GT
@@ -264,6 +277,8 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
     local_container['pred_classes'] = prediction.get_field('pred_labels').long().detach().cpu().numpy()     # (#pred_objs, )
     local_container['obj_scores'] = prediction.get_field('pred_scores').detach().cpu().numpy()              # (#pred_objs, )
     
+    if informative:
+        local_container['informative_rels'] = groundtruth.get_field('informative_rels')
 
     # to calculate accuracy, only consider those gt pairs
     # This metric is used by "Graphical Contrastive Losses for Scene Graph Parsing" 
@@ -330,7 +345,10 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
     evaluator['eval_zeroshot_recall'].calculate_recall(global_container, local_container, mode)
     # No Graph Constraint Zero-Shot Recall
     evaluator['eval_ng_zeroshot_recall'].calculate_recall(global_container, local_container, mode)
-
+    
+    if informative:
+        evaluator['eval_informative_recall'].calculate_recall(global_container, local_container, mode)
+        
     return 
 
 
