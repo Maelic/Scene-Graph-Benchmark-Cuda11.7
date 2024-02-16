@@ -1,6 +1,7 @@
 import logging
 import os
 import torch
+import torch.nn.functional as F
 import numpy as np
 import json
 from tqdm import tqdm
@@ -12,6 +13,7 @@ from sgg_benchmark.data import get_dataset_statistics
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 from sgg_benchmark.utils.miscellaneous import intersect_2d, argsort_desc, bbox_overlaps
+from sentence_transformers import SentenceTransformer, util
 
 from abc import ABC, abstractmethod
 
@@ -30,6 +32,99 @@ class SceneGraphEvaluation(ABC):
         print("Generate Print String")
         pass
 
+class SGInformativeRecall(SceneGraphEvaluation):
+    def __init__(self, result_dict, sim='glove'):
+        super(SGInformativeRecall, self).__init__(result_dict)
+
+        self.sim_options = ['glove', 'uae_large', 'bert_large', 'minilm']
+        if sim not in self.sim_options:
+            raise ValueError('sim must be in %s' % self.sim_options)
+        self.similarity = sim
+
+        # load embeddings according to similarity value
+        if self.similarity == 'glove':
+            self.sim_model = SentenceTransformer('average_word_embeddings_glove.6B.300d')
+        elif self.similarity == 'uae_large':
+            self.sim_model = SentenceTransformer('WhereIsAI/UAE-Large-V1')
+        elif self.similarity == 'bert_large':
+            self.sim_model = SentenceTransformer('bert-large-nli-mean-tokens')
+        elif self.similarity == 'minilm':
+            self.sim_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+    def register_container(self, mode):
+        self.result_dict[mode + '_informativeness_recall'] = {20: [], 50: [], 100: []}
+
+    def generate_print_string(self, mode):
+        result_str = 'SGG eval: '
+        for k, v in self.result_dict[mode + '_informativeness_recall'].items():
+            result_str += '    IR @ %d: %.4f; ' % (k, np.mean(v))
+        result_str += ' for mode=%s, type=Informativeness Recall.' % mode
+        result_str += '\n'
+        return result_str
+    
+    def similarity_match(self, gt_triplets, pred_triplets, threshold=0.8):
+        """
+        Perform cosine similarity between gt_triplets list of strings and pred_triplets list of strings
+        For each pred_triplet, find the gt_triplet with the highest cosine similarity score
+        If the highest cosine similarity score is above a threshold, then consider the pred_triplet to be a match
+        Return:
+            pred_to_gt [List of List]
+        """
+        for i in range(len(gt_triplets)):
+            gt_triplets[i] = gt_triplets[i].lower()
+        for i in range(len(pred_triplets)):
+            pred_triplets[i] = pred_triplets[i].lower()
+
+        pred_to_gt = [[] for x in range(len(pred_triplets))]
+
+        if len(gt_triplets) == 0 or len(pred_triplets) == 0:
+            return pred_to_gt
+
+        # encoding the gt_triplets and pred_triplets
+        gt_triplets_embeddings = self.sim_model.encode(gt_triplets)
+        pred_triplets_embeddings = self.sim_model.encode(pred_triplets)
+
+        # cosine similarity between gt_triplets and pred_triplets
+        for i in range(len(pred_triplets)):
+            top_sim =  torch.topk(util.cos_sim(pred_triplets_embeddings[i], gt_triplets_embeddings)[0], k=1)
+
+            # if the highest cosine similarity score is above a threshold, then consider the pred_triplet to be a match
+            if top_sim[0] > threshold:
+                pred_to_gt[i].append(top_sim[1])
+
+        return pred_to_gt
+
+    def calculate_recall(self, global_container, local_container, mode):
+        pred_rel_inds = local_container['pred_rel_inds']
+        rel_scores = local_container['rel_scores']
+        pred_classes = local_container['pred_classes']
+        pred_boxes = local_container['pred_boxes']
+        obj_scores = local_container['obj_scores']
+
+        gt_relationships = local_container['informative_rels']
+
+        pred_rels = np.column_stack((pred_rel_inds, 1+rel_scores[:,1:].argmax(1)))
+        pred_scores = rel_scores[:,1:].max(1)
+
+        pred_triplets, pred_triplet_boxes, pred_triplet_scores = _triplet(
+                pred_rels, pred_classes, pred_boxes, pred_scores, obj_scores)
+        
+        full_name_triplets = [str(global_container['ind_to_classes'][triplet[0]] +' ' +global_container['ind_to_predicates'][triplet[1]] +' '+global_container['ind_to_classes'][triplet[2]]) for triplet in pred_triplets]
+        
+        pred_to_gt = self.similarity_match(gt_relationships, full_name_triplets)
+
+        local_container['pred_to_gt_inf'] = pred_to_gt
+
+        for k in self.result_dict[mode + '_recall']:
+            # the following code are copied from Neural-MOTIFS
+            match = reduce(np.union1d, pred_to_gt[:k])
+            if len(gt_relationships) > 0:
+                rec_i = float(len(match)) / float(len(gt_relationships))
+            else:
+                rec_i = 0.0
+            self.result_dict[mode + '_recall'][k].append(rec_i)
+
+        return local_container
 
 """
 Traditional Recall, implement based on:
@@ -194,8 +289,7 @@ class SGZeroShotRecall(SceneGraphEvaluation):
                 zeroshot_match = len(self.zeroshot_idx) + len(match_list) - len(set(self.zeroshot_idx + match_list))
                 zero_rec_i = float(zeroshot_match) / float(len(self.zeroshot_idx))
                 self.result_dict[mode + '_zeroshot_recall'][k].append(zero_rec_i)
-
-
+                
 """
 No Graph Constraint Mean Recall
 """

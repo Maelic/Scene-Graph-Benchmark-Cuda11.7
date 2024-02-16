@@ -9,6 +9,7 @@ def vg_evaluation(
     output_folder,
     logger,
     iou_types,
+    informative,
     **_
 ):
     return do_vg_evaluation(
@@ -19,4 +20,5 @@ def vg_evaluation(
         output_folder=output_folder,
         logger=logger,
         iou_types=iou_types,
+        informative=informative,
     )

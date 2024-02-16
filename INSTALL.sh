@@ -36,9 +36,9 @@ conda init
 source ~/.bashrc
 
 conda update --force conda
-conda create --name scene_graph_benchmark python=3.8
-conda activate scene_graph_benchmark
-conda install ipython scipy h5py ninja yacs cython matplotlib tqdm pandas
+conda create --name sgg python=3.8
+conda activate sgg
+conda install ipython scipy h5py ninja cython matplotlib tqdm pandas
 conda remove yacs
 
 pip install -r requirements.txt

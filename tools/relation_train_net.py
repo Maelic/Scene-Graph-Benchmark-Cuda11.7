@@ -14,6 +14,7 @@ import datetime
 import numpy as np
 
 import torch
+import torch.distributed as dist
 
 from sgg_benchmark.config import cfg
 from sgg_benchmark.config.defaults_GCL import _C as cfg_GCL
@@ -295,9 +296,7 @@ def train(cfg, logger, args):
             logger.info("Now best epoch in {} is : {}, with value is {}".format(cfg.METRIC_TO_TRACK+"@k", best_epoch, best_metric))
             
             if args['use_wandb']:
-                for k, v in results.items():
-                    res = cfg.METRIC_TO_TRACK+"@"+str(k)
-                    wandb.log({res: v}, step=iteration)            
+                wandb.log({cfg.METRIC_TO_TRACK+"@k": val_result}, step=iteration)            
  
         # scheduler should be called after optimizer.step() in pytorch>=1.1.0
         # https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
@@ -348,6 +347,7 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     dataset_names = cfg.DATASETS.VAL
     val_result = []
     for dataset_name, val_data_loader in zip(dataset_names, val_data_loaders):
+        # shrink data_loader to only 100 samples
         dataset_result = inference(
                             cfg,
                             model,
@@ -387,8 +387,14 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
                 dataset_result[k1][k2] = np.mean(v2)
 
     # support for multi gpu distributed testing
-   
-    return dataset_result
+    gathered_result = all_gather(torch.tensor(dataset_result).cpu())
+    gathered_result = [t.view(-1) for t in gathered_result]
+    gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
+    valid_result = gathered_result[gathered_result>=0]
+    val_result = float(valid_result.mean())
+    del gathered_result, valid_result
+    torch.cuda.empty_cache()
+    return val_result
 
 def run_test(cfg, model, distributed, logger):
     if distributed:

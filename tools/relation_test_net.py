@@ -95,6 +95,7 @@ def main():
             mkdir(output_folder)
             output_folders[idx] = output_folder
     data_loaders_val = make_data_loader(cfg=cfg, mode="test", is_distributed=distributed, dataset_to_test=cfg.DATASETS.TO_TEST)
+
     for output_folder, dataset_name, data_loader_val in zip(output_folders, dataset_names, data_loaders_val):
         # Note: If mixed precision is not used, this ends up doing nothing
         with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
@@ -110,6 +111,7 @@ def main():
                 expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
                 output_folder=output_folder,
                 logger=logger,
+                informative=True,
             )
         synchronize()
 

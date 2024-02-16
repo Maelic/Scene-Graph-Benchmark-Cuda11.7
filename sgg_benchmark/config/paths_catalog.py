@@ -10,10 +10,9 @@ class DatasetCatalog(object):
         IMG_DIR = "/home/ubuntu/Scene-Graph-Benchmark-Cuda11.7/datasets/"
     elif os.path.exists("/home/maelic/Documents/PhD/Datasets/VisualGenome/"): # for local machine
         IMG_DIR = "/home/maelic/Documents/PhD/Datasets/VisualGenome/"
-    elif os.path.exists("/home/maelic/Documents/Datasets/VG"): # for local machine
-        IMG_DIR = "/home/maelic/Documents/Datasets/VG/"
-    # get path of this file
-    DATA_DIR = "/home/maelic/Scene-Graph-Benchmark-Cuda11.7/"
+    #elif os.path.exists("/home/maelic/Documents/Datasets/VG"): # for local machine
+    DATA_DIR = "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/"
+    IMG_DIR = "/home/maelic/Documents/PhD/Datasets/VisualGenome/"
     DATASETS = {
         "VG_stanford_filtered": {
             "img_dir": IMG_DIR+"VG_100K",
@@ -21,6 +20,7 @@ class DatasetCatalog(object):
             "dict_file": DATA_DIR+"datasets/VG150/baseline/VG-SGG-dicts.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
             "zeroshot_file": DATA_DIR+"datasets/VG150/baseline/zeroshot_triplet.pytorch",
+            "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
         "VG150_curated_filtered": {
             "img_dir": IMG_DIR+"VG_100K",
@@ -35,6 +35,7 @@ class DatasetCatalog(object):
             "dict_file": DATA_DIR+"datasets/VG150/curated/VG-SGG-dicts-with-attri.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
             "zeroshot_file": DATA_DIR+"datasets/VG150/curated/zeroshot_triplet.pytorch",
+            "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
         "VG150_connected_filtered": {
             "img_dir": IMG_DIR+"VG_100K",
@@ -49,6 +50,7 @@ class DatasetCatalog(object):
             "dict_file": DATA_DIR+"datasets/VG150/baseline/VG-SGG-dicts-with-attri.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
             "zeroshot_file": DATA_DIR+"datasets/VG150/baseline/zeroshot_triplet.pytorch",
+            "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
         "VrR-VG_filtered_with_attribute": {
             "img_dir": IMG_DIR+"VG_100K",
@@ -59,10 +61,18 @@ class DatasetCatalog(object):
         },
         "VG_indoor_filtered": {
             "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/IndoorVG/VG-SGG.h5",
-            "dict_file": DATA_DIR+"datasets/IndoorVG/VG-SGG-dicts.json",
+            "roidb_file": DATA_DIR+"datasets/IndoorVG/final/VG-SGG_augmented.h5",
+            "dict_file": DATA_DIR+"datasets/IndoorVG/final/VG-SGG-dicts-with-attri.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
-            "zeroshot_file": DATA_DIR+"datasets/IndoorVG/zero_shot_triplets.pytorch",
+            "zeroshot_file": DATA_DIR+"datasets/IndoorVG/final/zero_shot_triplets.pytorch",
+        },
+        "VG178": {
+            "img_dir":  IMG_DIR+"VG_100K",
+            "roidb_file": DATA_DIR+"VG178/VG-SGG.h5",
+            "dict_file": DATA_DIR+"VG178/VG-SGG-dicts.json",
+            "image_file": DATA_DIR+"vg/image_data.json",
+            "zeroshot_file": DATA_DIR+"VG178/zero_shot_triplets.pytorch",
+            "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
     }
 

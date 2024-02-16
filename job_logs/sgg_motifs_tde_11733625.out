@@ -1,0 +1,356 @@
+[32m2023-12-14 10:45:48.078[0m | [1mINFO    [0m | [36msgg_benchmark.utils.logger[0m:[36msetup_logger[0m:[36m30[0m - [1mUsing loguru logger with level: INFO[0m
+[32m2023-12-14 10:45:48.091[0m | [1mINFO    [0m | [36m__main__[0m:[36mmain[0m:[36m416[0m - [1mUsing 2 GPUs[0m
+[32m2023-12-14 10:45:48.091[0m | [1mINFO    [0m | [36m__main__[0m:[36mmain[0m:[36m419[0m - [1mCollecting environment info...[0m
+[32m2023-12-14 10:46:02.282[0m | [1mINFO    [0m | [36msgg_benchmark.utils.logger[0m:[36mlogger_step[0m:[36m15[0m - [1m#################### Step 1: 
+PyTorch version: 1.13.1+cu117
+Is debug build: False
+CUDA used to build PyTorch: 11.7
+ROCM used to build PyTorch: N/A
+
+OS: Red Hat Enterprise Linux release 8.6 (Ootpa) (x86_64)
+GCC version: (GCC) 8.5.0 20210514 (Red Hat 8.5.0-10)
+Clang version: Could not collect
+CMake version: Could not collect
+Libc version: glibc-2.28
+
+Python version: 3.10.13 | packaged by conda-forge | (main, Oct 26 2023, 18:07:37) [GCC 12.3.0] (64-bit runtime)
+Python platform: Linux-4.18.0-372.75.1.el8_6.x86_64-x86_64-with-glibc2.28
+Is CUDA available: True
+CUDA runtime version: 11.7.99
+CUDA_MODULE_LOADING set to: LAZY
+GPU models and configuration: 
+GPU 0: Tesla V100-SXM2-32GB
+GPU 1: Tesla V100-SXM2-32GB
+
+Nvidia driver version: 535.129.03
+cuDNN version: Could not collect
+HIP runtime version: N/A
+MIOpen runtime version: N/A
+Is XNNPACK available: True
+
+Versions of relevant libraries:
+[pip3] numpy==1.26.2
+[pip3] torch==1.13.1+cu117
+[pip3] torchaudio==0.13.1+cu117
+[pip3] torchtext==0.4.0
+[pip3] torchvision==0.14.1+cu117
+[conda] cudatoolkit               11.7.1              h4bc3d14_12    conda-forge
+[conda] cudatoolkit-dev           11.7.0               h1de0b5d_6    conda-forge
+[conda] numpy                     1.26.2                   pypi_0    pypi
+[conda] torch                     1.13.1+cu117             pypi_0    pypi
+[conda] torchaudio                0.13.1+cu117             pypi_0    pypi
+[conda] torchtext                 0.4.0                    pypi_0    pypi
+[conda] torchvision               0.14.1+cu117             pypi_0    pypi
+        Pillow (10.1.0) ####################[0m
+[32m2023-12-14 10:46:02.282[0m | [1mINFO    [0m | [36m__main__[0m:[36mmain[0m:[36m422[0m - [1mLoaded configuration file configs/VG178/e2e_relation_X_101_32_8_FPN_1x.yaml[0m
+[32m2023-12-14 10:46:02.283[0m | [1mINFO    [0m | [36m__main__[0m:[36mmain[0m:[36m426[0m - [1mRunning with config:
+DATALOADER:
+  ASPECT_RATIO_GROUPING: True
+  NUM_WORKERS: 4
+  SIZE_DIVISIBILITY: 32
+DATASETS:
+  NAME: 
+  TEST: ('VG178_test',)
+  TO_TEST: 
+  TRAIN: ('VG178_train',)
+  VAL: ('VG178_val',)
+DETECTED_SGG_DIR: .
+DTYPE: float16
+GLOVE_DIR: /gpfswork/rech/gtb/ukj95zg/glove
+INPUT:
+  BRIGHTNESS: 0.0
+  CONTRAST: 0.0
+  HUE: 0.0
+  MAX_SIZE_TEST: 1000
+  MAX_SIZE_TRAIN: 1000
+  MIN_SIZE_TEST: 600
+  MIN_SIZE_TRAIN: (600,)
+  PIXEL_MEAN: [102.9801, 115.9465, 122.7717]
+  PIXEL_STD: [1.0, 1.0, 1.0]
+  SATURATION: 0.0
+  TO_BGR255: True
+  VERTICAL_FLIP_PROB_TRAIN: 0.0
+METRIC_TO_TRACK: mR
+MODEL:
+  ATTRIBUTE_ON: False
+  BACKBONE:
+    CONV_BODY: R-101-FPN
+    FREEZE_CONV_BODY_AT: 2
+  CLS_AGNOSTIC_BBOX_REG: False
+  DEVICE: cuda
+  FBNET:
+    ARCH: default
+    ARCH_DEF: 
+    BN_TYPE: bn
+    DET_HEAD_BLOCKS: []
+    DET_HEAD_LAST_SCALE: 1.0
+    DET_HEAD_STRIDE: 0
+    DW_CONV_SKIP_BN: True
+    DW_CONV_SKIP_RELU: True
+    KPTS_HEAD_BLOCKS: []
+    KPTS_HEAD_LAST_SCALE: 0.0
+    KPTS_HEAD_STRIDE: 0
+    MASK_HEAD_BLOCKS: []
+    MASK_HEAD_LAST_SCALE: 0.0
+    MASK_HEAD_STRIDE: 0
+    RPN_BN_TYPE: 
+    RPN_HEAD_BLOCKS: 0
+    SCALE_FACTOR: 1.0
+    WIDTH_DIVISOR: 1
+  FLIP_AUG: False
+  FPN:
+    USE_GN: False
+    USE_RELU: False
+  GROUP_NORM:
+    DIM_PER_GP: -1
+    EPSILON: 1e-05
+    NUM_GROUPS: 32
+  KEYPOINT_ON: False
+  MASK_ON: False
+  META_ARCHITECTURE: GeneralizedRCNN
+  PRETRAINED_DETECTOR_CKPT: /gpfswork/rech/gtb/ukj95zg/Scene-Graph-Benchmark-Cuda11.7/checkpoints/faster_rcnn/best_model_0058000.pth
+  RELATION_ON: True
+  RESNETS:
+    BACKBONE_OUT_CHANNELS: 256
+    DEFORMABLE_GROUPS: 1
+    NUM_GROUPS: 32
+    RES2_OUT_CHANNELS: 256
+    RES5_DILATION: 1
+    STAGE_WITH_DCN: (False, False, False, False)
+    STEM_FUNC: StemWithFixedBatchNorm
+    STEM_OUT_CHANNELS: 64
+    STRIDE_IN_1X1: False
+    TRANS_FUNC: BottleneckWithFixedBatchNorm
+    WIDTH_PER_GROUP: 8
+    WITH_MODULATED_DCN: False
+  RETINANET:
+    ANCHOR_SIZES: (32, 64, 128, 256, 512)
+    ANCHOR_STRIDES: (8, 16, 32, 64, 128)
+    ASPECT_RATIOS: (0.5, 1.0, 2.0)
+    BBOX_REG_BETA: 0.11
+    BBOX_REG_WEIGHT: 4.0
+    BG_IOU_THRESHOLD: 0.4
+    FG_IOU_THRESHOLD: 0.5
+    INFERENCE_TH: 0.05
+    LOSS_ALPHA: 0.25
+    LOSS_GAMMA: 2.0
+    NMS_TH: 0.4
+    NUM_CLASSES: 81
+    NUM_CONVS: 4
+    OCTAVE: 2.0
+    PRE_NMS_TOP_N: 1000
+    PRIOR_PROB: 0.01
+    SCALES_PER_OCTAVE: 3
+    STRADDLE_THRESH: 0
+    USE_C5: True
+  RETINANET_ON: False
+  ROI_ATTRIBUTE_HEAD:
+    ATTRIBUTE_BGFG_RATIO: 3
+    ATTRIBUTE_BGFG_SAMPLE: True
+    ATTRIBUTE_LOSS_WEIGHT: 1.0
+    FEATURE_EXTRACTOR: FPN2MLPFeatureExtractor
+    MAX_ATTRIBUTES: 10
+    NUM_ATTRIBUTES: 201
+    POS_WEIGHT: 50.0
+    PREDICTOR: FPNPredictor
+    SHARE_BOX_FEATURE_EXTRACTOR: True
+    USE_BINARY_LOSS: True
+  ROI_BOX_HEAD:
+    CONV_HEAD_DIM: 256
+    DILATION: 1
+    FEATURE_EXTRACTOR: FPN2MLPFeatureExtractor
+    MLP_HEAD_DIM: 4096
+    NUM_CLASSES: 179
+    NUM_STACKED_CONVS: 4
+    POOLER_RESOLUTION: 7
+    POOLER_SAMPLING_RATIO: 2
+    POOLER_SCALES: (0.25, 0.125, 0.0625, 0.03125)
+    PREDICTOR: FPNPredictor
+    USE_GN: False
+  ROI_HEADS:
+    BATCH_SIZE_PER_IMAGE: 256
+    BBOX_REG_WEIGHTS: (10.0, 10.0, 5.0, 5.0)
+    BG_IOU_THRESHOLD: 0.3
+    DETECTIONS_PER_IMG: 50
+    FG_IOU_THRESHOLD: 0.5
+    NMS: 0.3
+    NMS_FILTER_DUPLICATES: True
+    POSITIVE_FRACTION: 0.5
+    POST_NMS_PER_CLS_TOPN: 300
+    SCORE_THRESH: 0.01
+    USE_FPN: True
+  ROI_KEYPOINT_HEAD:
+    CONV_LAYERS: (512, 512, 512, 512, 512, 512, 512, 512)
+    FEATURE_EXTRACTOR: KeypointRCNNFeatureExtractor
+    MLP_HEAD_DIM: 1024
+    NUM_CLASSES: 17
+    POOLER_RESOLUTION: 14
+    POOLER_SAMPLING_RATIO: 0
+    POOLER_SCALES: (0.0625,)
+    PREDICTOR: KeypointRCNNPredictor
+    RESOLUTION: 14
+    SHARE_BOX_FEATURE_EXTRACTOR: True
+  ROI_MASK_HEAD:
+    CONV_LAYERS: (256, 256, 256, 256)
+    DILATION: 1
+    FEATURE_EXTRACTOR: ResNet50Conv5ROIFeatureExtractor
+    MLP_HEAD_DIM: 1024
+    POOLER_RESOLUTION: 14
+    POOLER_SAMPLING_RATIO: 0
+    POOLER_SCALES: (0.0625,)
+    POSTPROCESS_MASKS: False
+    POSTPROCESS_MASKS_THRESHOLD: 0.5
+    PREDICTOR: MaskRCNNC4Predictor
+    RESOLUTION: 14
+    SHARE_BOX_FEATURE_EXTRACTOR: True
+    USE_GN: False
+  ROI_RELATION_HEAD:
+    ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True
+    BATCH_SIZE_PER_IMAGE: 1024
+    CAUSAL:
+      CONTEXT_LAYER: motifs
+      EFFECT_ANALYSIS: True
+      EFFECT_TYPE: TDE
+      FUSION_TYPE: sum
+      SEPARATE_SPATIAL: False
+      SPATIAL_FOR_VISION: True
+    CONTEXT_DROPOUT_RATE: 0.2
+    CONTEXT_HIDDEN_DIM: 512
+    CONTEXT_OBJ_LAYER: 1
+    CONTEXT_POOLING_DIM: 4096
+    CONTEXT_REL_LAYER: 1
+    EMBED_DIM: 200
+    FEATURE_EXTRACTOR: RelationFeatureExtractor
+    LABEL_SMOOTHING_LOSS: False
+    NUM_CLASSES: 46
+    NUM_SAMPLE_PER_GT_REL: 4
+    POOLING_ALL_LEVELS: True
+    POSITIVE_FRACTION: 0.25
+    PREDICTOR: CausalAnalysisPredictor
+    PREDICT_USE_BIAS: True
+    PREDICT_USE_VISION: True
+    REL_PROP: [0.01858, 0.00057, 0.00051, 0.00109, 0.0015, 0.00489, 0.00432, 0.02913, 0.00245, 0.00121, 0.00404, 0.0011, 0.00132, 0.00172, 5e-05, 0.00242, 0.0005, 0.00048, 0.00208, 0.15608, 0.0265, 0.06091, 0.009, 0.00183, 0.00225, 0.0009, 0.00028, 0.00077, 0.04844, 0.08645, 0.31621, 0.00088, 0.00301, 0.00042, 0.00186, 0.001, 0.00027, 0.01012, 0.0001, 0.01286, 0.00647, 0.00084, 0.01077, 0.00132, 0.00069, 0.00376, 0.00214, 0.11424, 0.01205, 0.02958]
+    REQUIRE_BOX_OVERLAP: False
+    TRANSFORMER:
+      DROPOUT_RATE: 0.1
+      INNER_DIM: 2048
+      KEY_DIM: 64
+      NUM_HEAD: 8
+      OBJ_LAYER: 4
+      REL_LAYER: 2
+      VAL_DIM: 64
+    USE_GT_BOX: False
+    USE_GT_OBJECT_LABEL: False
+  RPN:
+    ANCHOR_SIZES: (32, 64, 128, 256, 512)
+    ANCHOR_STRIDE: (4, 8, 16, 32, 64)
+    ASPECT_RATIOS: (0.23232838, 0.63365731, 1.28478321, 3.15089189)
+    BATCH_SIZE_PER_IMAGE: 256
+    BG_IOU_THRESHOLD: 0.3
+    FG_IOU_THRESHOLD: 0.7
+    FPN_POST_NMS_PER_BATCH: False
+    FPN_POST_NMS_TOP_N_TEST: 1000
+    FPN_POST_NMS_TOP_N_TRAIN: 1000
+    MIN_SIZE: 0
+    NMS_THRESH: 0.7
+    POSITIVE_FRACTION: 0.5
+    POST_NMS_TOP_N_TEST: 1000
+    POST_NMS_TOP_N_TRAIN: 1000
+    PRE_NMS_TOP_N_TEST: 6000
+    PRE_NMS_TOP_N_TRAIN: 6000
+    RPN_HEAD: SingleConvRPNHead
+    RPN_MID_CHANNEL: 256
+    STRADDLE_THRESH: 0
+    USE_FPN: True
+  RPN_ONLY: False
+  VGG:
+    VGG16_OUT_CHANNELS: 512
+  WEIGHT: catalog://ImageNetPretrained/FAIR/20171220/X-101-32x8d
+OUTPUT_DIR: /gpfswork/rech/gtb/ukj95zg/Scene-Graph-Benchmark-Cuda11.7/checkpoints/VG178
+PATHS_CATALOG: /gpfsdswork/projects/rech/gtb/ukj95zg/Scene-Graph-Benchmark-Cuda11.7/sgg_benchmark/config/paths_catalog.py
+PATHS_DATA: /home/maelic/Documents/Datasets/VG/
+SOLVER:
+  BASE_LR: 0.03
+  BIAS_LR_FACTOR: 1
+  CHECKPOINT_PERIOD: 2000
+  CLIP_NORM: 5.0
+  GAMMA: 0.1
+  GRAD_NORM_CLIP: 5.0
+  IMS_PER_BATCH: 32
+  MAX_ITER: 30000
+  MOMENTUM: 0.9
+  PRE_VAL: False
+  PRINT_GRAD_FREQ: 4000
+  SCHEDULE:
+    COOLDOWN: 0
+    FACTOR: 0.1
+    MAX_DECAY_STEP: 3
+    PATIENCE: 2
+    THRESHOLD: 0.001
+    TYPE: WarmupReduceLROnPlateau
+  STEPS: (10000, 16000)
+  TO_VAL: True
+  UPDATE_SCHEDULE_DURING_LOAD: False
+  VAL_PERIOD: 2000
+  WARMUP_FACTOR: 0.1
+  WARMUP_ITERS: 500
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 0.0001
+  WEIGHT_DECAY_BIAS: 0.0
+TEST:
+  ALLOW_LOAD_FROM_CACHE: False
+  BBOX_AUG:
+    ENABLED: False
+    H_FLIP: False
+    MAX_SIZE: 4000
+    SCALES: ()
+    SCALE_H_FLIP: False
+  CUSTUM_EVAL: False
+  CUSTUM_PATH: .
+  DETECTIONS_PER_IMG: 100
+  EXPECTED_RESULTS: []
+  EXPECTED_RESULTS_SIGMA_TOL: 4
+  IMS_PER_BATCH: 2
+  RELATION:
+    IOU_THRESHOLD: 0.5
+    LATER_NMS_PREDICTION_THRES: 0.5
+    MULTIPLE_PREDS: False
+    REQUIRE_OVERLAP: False
+    SYNC_GATHER: True
+  SAVE_PROPOSALS: False[0m
+[32m2023-12-14 10:46:02.286[0m | [1mINFO    [0m | [36m__main__[0m:[36mmain[0m:[36m429[0m - [1mSaving config into: /gpfswork/rech/gtb/ukj95zg/Scene-Graph-Benchmark-Cuda11.7/checkpoints/VG178/config.yml[0m
+[32m2023-12-14 10:46:02.332[0m | [1mINFO    [0m | [36msgg_benchmark.utils.logger[0m:[36mlogger_step[0m:[36m15[0m - [1m#################### Step 2: Building model... ####################[0m
+[32m2023-12-14 10:46:06.896[0m | [1mINFO    [0m | [36msgg_benchmark.data.build[0m:[36mget_dataset_statistics[0m:[36m30[0m - [1m----------------------------------------------------------------------------------------------------[0m
+[32m2023-12-14 10:46:06.896[0m | [1mINFO    [0m | [36msgg_benchmark.data.build[0m:[36mget_dataset_statistics[0m:[36m31[0m - [1mget dataset statistics...[0m
+loading word vectors from /gpfswork/rech/gtb/ukj95zg/glove/glove.6B.200d.pt
+[32m2023-12-14 10:46:06.900[0m | [1mINFO    [0m | [36msgg_benchmark.data.build[0m:[36mget_dataset_statistics[0m:[36m42[0m - [1mLoading data statistics from: /gpfswork/rech/gtb/ukj95zg/Scene-Graph-Benchmark-Cuda11.7/checkpoints/VG178/VG178_train_statistics.cache[0m
+[32m2023-12-14 10:46:07.001[0m | [1mINFO    [0m | [36msgg_benchmark.data.build[0m:[36mget_dataset_statistics[0m:[36m43[0m - [1m----------------------------------------------------------------------------------------------------[0m
+loading word vectors from /gpfswork/rech/gtb/ukj95zg/glove/glove.6B.200d.pt
+__background__ -> __background__ 
+fail on __background__
+__background__ -> __background__ 
+fail on __background__
+loading word vectors from /gpfswork/rech/gtb/ukj95zg/glove/glove.6B.200d.pt
+loading word vectors from /gpfswork/rech/gtb/ukj95zg/glove/glove.6B.200d.pt
+__background__ -> __background__ 
+fail on __background__
+__background__ -> __background__ 
+fail on __background__
+[32m2023-12-14 10:46:19.744[0m | [1mINFO    [0m | [36msgg_benchmark.utils.logger[0m:[36mlogger_step[0m:[36m15[0m - [1m#################### Step 3: Building optimizer and shcedule ####################[0m
+[32m2023-12-14 10:46:19.769[0m | [1mINFO    [0m | [36msgg_benchmark.utils.checkpoint[0m:[36mload[0m:[36m64[0m - [1mLoading checkpoint from /gpfswork/rech/gtb/ukj95zg/Scene-Graph-Benchmark-Cuda11.7/checkpoints/faster_rcnn/best_model_0058000.pth[0m
+[32m2023-12-14 10:46:23.304[0m | [1mINFO    [0m | [36msgg_benchmark.utils.logger[0m:[36mlogger_step[0m:[36m15[0m - [1m#################### Step 4: Building checkpointer ####################[0m
+[32m2023-12-14 10:46:23.305[0m | [33m[1mWARNING [0m | [36msgg_benchmark.data.build[0m:[36mmake_data_loader[0m:[36m202[0m - [33m[1mWhen using more than one image per GPU you may encounter an out-of-memory (OOM) error if your GPU does not have sufficient memory. If this happens, you can reduce SOLVER.IMS_PER_BATCH (for training) or TEST.IMS_PER_BATCH (for inference). For training, you must also adjust the learning rate and schedule length according to the linear scaling rule. See for example: https://github.com/facebookresearch/Detectron/blob/master/configs/getting_started/tutorial_1gpu_e2e_faster_rcnn_R-50-FPN.yaml#L14[0m
+[32m2023-12-14 10:48:18.061[0m | [1mINFO    [0m | [36msgg_benchmark.utils.miscellaneous[0m:[36msave_labels[0m:[36m37[0m - [1mSaving labels mapping into /gpfswork/rech/gtb/ukj95zg/Scene-Graph-Benchmark-Cuda11.7/checkpoints/VG178/labels.json[0m
+[32m2023-12-14 10:48:21.208[0m | [1mINFO    [0m | [36msgg_benchmark.utils.logger[0m:[36mlogger_step[0m:[36m15[0m - [1m#################### Step 5: Building dataloader ####################[0m
+[32m2023-12-14 10:48:21.209[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m138[0m - [1mStart training[0m
+[32m2023-12-14 10:52:00.988[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 18:15:13  iter: 100  loss: 2.0088 (3.4939)  auxiliary_ctx: 0.1904 (0.5029)  auxiliary_frq: 0.1875 (0.1965)  auxiliary_vis: 0.2224 (0.5952)  loss_refine_obj: 1.0517 (1.7067)  loss_rel: 0.3512 (0.4926)  time: 2.0790 (2.1978)  data: 0.0351 (0.0704)  lr: 0.267072  max mem: 7572[0m
+[32m2023-12-14 10:55:29.508[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 17:43:36  iter: 200  loss: 1.7482 (2.6914)  auxiliary_ctx: 0.1938 (0.3528)  auxiliary_frq: 0.1885 (0.1953)  auxiliary_vis: 0.2174 (0.4108)  loss_refine_obj: 0.8541 (1.3091)  loss_rel: 0.3264 (0.4234)  time: 2.0699 (2.1415)  data: 0.0353 (0.0533)  lr: 0.439872  max mem: 7572[0m
+[32m2023-12-14 10:58:57.248[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 17:29:27  iter: 300  loss: 1.7515 (2.3906)  auxiliary_ctx: 0.1868 (0.2986)  auxiliary_frq: 0.1922 (0.1942)  auxiliary_vis: 0.2207 (0.3471)  loss_refine_obj: 0.8199 (1.1563)  loss_rel: 0.3328 (0.3944)  time: 2.0732 (2.1201)  data: 0.0349 (0.0477)  lr: 0.612672  max mem: 7572[0m
+[32m2023-12-14 11:02:25.460[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 17:21:14  iter: 400  loss: 1.8316 (2.2312)  auxiliary_ctx: 0.1919 (0.2713)  auxiliary_frq: 0.1923 (0.1940)  auxiliary_vis: 0.2151 (0.3155)  loss_refine_obj: 0.8225 (1.0697)  loss_rel: 0.3442 (0.3808)  time: 2.0725 (2.1106)  data: 0.0364 (0.0451)  lr: 0.785472  max mem: 7572[0m
+[32m2023-12-14 11:05:52.824[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 17:14:05  iter: 500  loss: 1.7271 (2.1332)  auxiliary_ctx: 0.1851 (0.2545)  auxiliary_frq: 0.1887 (0.1938)  auxiliary_vis: 0.2169 (0.2980)  loss_refine_obj: 0.7617 (1.0143)  loss_rel: 0.3298 (0.3726)  time: 2.0582 (2.1032)  data: 0.0354 (0.0435)  lr: 0.958272  max mem: 7572[0m
+[32m2023-12-14 11:09:20.965[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 17:08:47  iter: 600  loss: nan (nan)  auxiliary_ctx: 0.2237 (0.2556)  auxiliary_frq: 0.1863 (0.1934)  auxiliary_vis: nan (nan)  loss_refine_obj: 1.3289 (1.0226)  loss_rel: nan (nan)  time: 2.0678 (2.0996)  data: 0.0362 (0.0423)  lr: 0.960000  max mem: 7572[0m
+[32m2023-12-14 11:12:48.406[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 17:03:32  iter: 700  loss: nan (nan)  auxiliary_ctx: 0.4375 (0.2859)  auxiliary_frq: 0.1940 (0.1934)  auxiliary_vis: nan (nan)  loss_refine_obj: 2.4214 (1.2184)  loss_rel: nan (nan)  time: 2.0711 (2.0960)  data: 0.0366 (0.0418)  lr: 0.960000  max mem: 7572[0m
+[32m2023-12-14 11:16:17.482[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 16:59:43  iter: 800  loss: nan (nan)  auxiliary_ctx: 0.4095 (0.3077)  auxiliary_frq: 0.1831 (0.1931)  auxiliary_vis: nan (nan)  loss_refine_obj: 2.5870 (1.3754)  loss_rel: nan (nan)  time: 2.0951 (2.0953)  data: 0.0426 (0.0417)  lr: 0.960000  max mem: 7572[0m
+[32m2023-12-14 11:19:45.276[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 16:55:18  iter: 900  loss: nan (nan)  auxiliary_ctx: 0.4771 (0.3236)  auxiliary_frq: 0.1934 (0.1926)  auxiliary_vis: nan (nan)  loss_refine_obj: 2.4324 (1.4979)  loss_rel: nan (nan)  time: 2.0741 (2.0934)  data: 0.0359 (0.0413)  lr: 0.960000  max mem: 7572[0m
+[32m2023-12-14 11:23:13.835[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 16:51:26  iter: 1000  loss: nan (nan)  auxiliary_ctx: 0.4245 (0.3382)  auxiliary_frq: 0.1808 (0.1926)  auxiliary_vis: nan (nan)  loss_refine_obj: 2.4833 (1.5966)  loss_rel: nan (nan)  time: 2.1065 (2.0926)  data: 0.0356 (0.0411)  lr: 0.960000  max mem: 7572[0m
+[32m2023-12-14 11:26:42.729[0m | [1mINFO    [0m | [36m__main__[0m:[36mtrain[0m:[36m198[0m - [1meta: 16:47:47  iter: 1100  loss: nan (nan)  auxiliary_ctx: 0.4550 (0.3514)  auxiliary_frq: 0.1857 (0.1928)  auxiliary_vis: nan (nan)  loss_refine_obj: 2.4520 (1.6742)  loss_rel: nan (nan)  time: 2.0667 (2.0923)  data: 0.0340 (0.0406)  lr: 0.960000  max mem: 7572[0m

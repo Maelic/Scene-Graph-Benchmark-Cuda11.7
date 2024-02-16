@@ -14,7 +14,7 @@ def logger_step(logger, info):
     current_step += 1
     logger.info('#'*20+' Step '+str(current_step)+': '+info+' '+'#'*20)
 
-def setup_logger(name, save_dir=None, distributed_rank=None, filename="log.txt", steps=False, verbose=False):
+def setup_logger(name, save_dir=None, distributed_rank=0, filename="log.txt", steps=False, verbose=False):
     global use_step
     use_step = steps
     try:
