@@ -21,9 +21,8 @@ def compute_on_dataset(model, data_loader, device, synchronize_gather=True, time
     results_dict = {}
     cpu_device = torch.device("cpu")
     torch.cuda.empty_cache()
-    for i, batch in enumerate(tqdm(data_loader, desc='Evaluating', total=10000)):
-        if i == 10000:
-            break
+    
+    for _, batch in enumerate(tqdm(data_loader)):
         with torch.no_grad():
             images, targets, image_ids = batch
             targets = [target.to(device) for target in targets]

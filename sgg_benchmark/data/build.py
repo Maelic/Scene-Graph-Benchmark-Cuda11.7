@@ -62,6 +62,7 @@ def get_dataset_statistics(cfg):
         'rel_classes': statistics[0]['rel_classes'],
         'predicate_new_order': statistics[0]['predicate_new_order'], # for GCL
         'predicate_new_order_count': statistics[0]['predicate_new_order_count'],
+        'pred_prop': statistics[0]['pred_prop'],
     }
     logger.info('Save data statistics to: ' + str(save_file))
     logger.info('-'*100)
@@ -194,21 +195,6 @@ def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0, data
         num_iters = None
         start_iter = 0
 
-    if images_per_gpu > 1:
-        try:
-            from loguru import logger
-        except ImportError:
-            logger = logging.getLogger(__name__)
-        logger.warning(
-            "When using more than one image per GPU you may encounter "
-            "an out-of-memory (OOM) error if your GPU does not have "
-            "sufficient memory. If this happens, you can reduce "
-            "SOLVER.IMS_PER_BATCH (for training) or "
-            "TEST.IMS_PER_BATCH (for inference). For training, you must "
-            "also adjust the learning rate and schedule length according "
-            "to the linear scaling rule. See for example: "
-            "https://github.com/facebookresearch/Detectron/blob/master/configs/getting_started/tutorial_1gpu_e2e_faster_rcnn_R-50-FPN.yaml#L14"
-        )
 
     # group images which have similar aspect ratio. In this case, we only
     # group in two cases: those with width / height > 1, and the other way around,
@@ -236,10 +222,6 @@ def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0, data
 
     data_loaders = []
     for dataset in datasets:
-        # print('============')
-        # print(len(dataset))
-        # print(images_per_gpu)
-        # print('============')
         sampler = make_data_sampler(dataset, shuffle, is_distributed)
         batch_sampler = make_batch_data_sampler(
             dataset, sampler, aspect_grouping, images_per_gpu, num_iters, start_iter

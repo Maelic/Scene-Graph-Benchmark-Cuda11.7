@@ -63,7 +63,7 @@ class ROIRelationHead(torch.nn.Module):
             rel_pair_idxs = self.samp_processor.prepare_test_pairs(features[0].device, proposals)
 
         # use box_head to extract features that will be fed to the later predictor processing
-        roi_features = self.box_feature_extractor(features, proposals)
+        roi_features = self.box_feature_extractor(features, proposals, reduce=True)
 
         if self.cfg.MODEL.ATTRIBUTE_ON:
             att_features = self.att_feature_extractor(features, proposals)

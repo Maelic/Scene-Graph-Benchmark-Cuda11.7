@@ -8,12 +8,17 @@ import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 import random
+import cv2
 
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 
 BOX_SCALE = 1024  # Scale at which we have the boxes
-
+try:
+    from loguru import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
 class VGDataset(torch.utils.data.Dataset):
 
     def __init__(self, split, img_dir, roidb_file, dict_file, image_file, zeroshot_file, informative_file=None, transforms=None,
@@ -50,6 +55,7 @@ class VGDataset(torch.utils.data.Dataset):
         self.filter_non_overlap = filter_non_overlap and self.split == 'train'
         self.filter_duplicate_rels = filter_duplicate_rels and self.split == 'train'
         self.transforms = transforms
+        self.format = format
 
         self.save_final_dict = False
 
@@ -96,14 +102,18 @@ class VGDataset(torch.utils.data.Dataset):
             if self.transforms is not None:
                 img, target = self.transforms(img, target)
             return img, target, index
-        
-        img = Image.open(self.filenames[index]).convert("RGB")
-        if img.size[0] != self.img_info[index]['width'] or img.size[1] != self.img_info[index]['height']:
-            print('='*20, ' ERROR index ', str(index), ' ', str(img.size), ' ', str(self.img_info[index]['width']), ' ', str(self.img_info[index]['height']), ' ', '='*20)
-
         flip_img = (random.random() > 0.5) and self.flip_aug and (self.split == 'train')
-        
+
         target = self.get_groundtruth(index, flip_img)
+
+        # if self.format == 'yolo':
+        img = cv2.imread(self.filenames[index])
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # return img, target, index
+
+        # img = Image.open(self.filenames[index]).convert("RGB")        
+        # if img.size[0] != self.img_info[index]['width'] or img.size[1] != self.img_info[index]['height']:
+        #     logger.debug('='*20, ' ERROR index ', str(index), ' ', str(img.size), ' ', str(self.img_info[index]['width']), ' ', str(self.img_info[index]['height']), ' ', '='*20)        
 
         if flip_img:
             img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
@@ -115,7 +125,7 @@ class VGDataset(torch.utils.data.Dataset):
 
 
     def get_statistics(self):
-        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count = get_VG_statistics(img_dir=self.img_dir, roidb_file=self.roidb_file, dict_file=self.dict_file,
+        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop = get_VG_statistics(img_dir=self.img_dir, roidb_file=self.roidb_file, dict_file=self.dict_file,
                                                 image_file=self.image_file, zeroshot_file=self.zeroshot_file, must_overlap=True)
         eps = 1e-3
         bg_matrix += 1
@@ -129,6 +139,7 @@ class VGDataset(torch.utils.data.Dataset):
             'rel_classes': self.ind_to_predicates,
             'predicate_new_order': predicate_new_order,
             'predicate_new_order_count': predicate_new_order_count,
+            'pred_prop': pred_prop,
             #'att_classes': self.ind_to_attributes,
         }
 
@@ -242,13 +253,20 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
         for p in k:
             for i, x in enumerate(p):
                 stats_pred[i] += x
+    # compute proportion of each predicate
+    total_pred = sum(stats_pred.values())
+    pred_prop = [v / total_pred for k, v in stats_pred.items()] # this will replace cfg.MODEL.REL_PROP
+    # pop first item
+    pred_prop.pop(0)
+    print(pred_prop)
+
     # add background value
     stats_pred[0] = 3024465
     stats_pred = dict(sorted(stats_pred.items(), key=lambda x: x[1], reverse=True))
     predicate_new_order = list(stats_pred.keys())
     predicate_new_order_count = list(stats_pred.values())
 
-    return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count
+    return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop
     
 
 def box_filter(boxes, must_overlap=False):
@@ -297,9 +315,7 @@ def correct_img_info(img_dir, image_file):
         filename = os.path.join(img_dir, basename)
         img_data = Image.open(filename).convert("RGB")
         if img['width'] != img_data.size[0] or img['height'] != img_data.size[1]:
-            print('--------- False id: ', i, '---------')
-            print(img_data.size)
-            print(img)
+            logger.debug("Wrong image size for %s", filename)
             data[i]['width'] = img_data.size[0]
             data[i]['height'] = img_data.size[1]
     with open(image_file, 'w') as outfile:  
@@ -322,6 +338,8 @@ def load_info(dict_file, add_bg=True):
     ind_to_classes = sorted(class_to_ind, key=lambda k: class_to_ind[k])
     ind_to_predicates = sorted(predicate_to_ind, key=lambda k: predicate_to_ind[k])
     #ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
+
+    return ind_to_classes, ind_to_predicates #, ind_to_attributes
 
     # if "attribute_to_idx" in info.keys():
     #     attribute_to_ind = info['attribute_to_idx']

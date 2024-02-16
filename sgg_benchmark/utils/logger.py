@@ -21,7 +21,7 @@ def setup_logger(name, save_dir=None, distributed_rank=0, filename="log.txt", st
         from loguru import logger
         level = "DEBUG" if verbose else "INFO"
         logger.remove()
-        if distributed_rank > 0:
+        if distributed_rank is not None and distributed_rank > 0:
             return logger
         if save_dir is not None:
             logger.add(os.path.join(save_dir, filename),  format='{time:YYYY-MM-DD HH:mm:ss.SSS} | <level>{level: <8}</level> | {name}{function}{line} - <level>{message}</level>', colorize=False, level=level)

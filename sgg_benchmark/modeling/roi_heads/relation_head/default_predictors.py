@@ -203,7 +203,7 @@ class MotifPredictor(nn.Module):
         super(MotifPredictor, self).__init__()
         self.attribute_on = config.MODEL.ATTRIBUTE_ON
         self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
-        self.num_att_cls = config.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
+        # self.num_att_cls = config.MODEL.ROI_ATTRIBUTE_HEAD.NUM_ATTRIBUTES
         self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
         
         assert in_channels is not None

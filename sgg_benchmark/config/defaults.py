@@ -29,7 +29,7 @@ _C.MODEL.KEYPOINT_ON = False
 _C.MODEL.ATTRIBUTE_ON = False
 _C.MODEL.RELATION_ON = False
 _C.MODEL.DEVICE = "cuda"
-_C.MODEL.META_ARCHITECTURE = "GeneralizedRCNN"
+_C.MODEL.META_ARCHITECTURE = "GeneralizedRCNN" # GeneralizedYOLO
 _C.MODEL.CLS_AGNOSTIC_BBOX_REG = False
 
 # If the WEIGHT starts with a catalog://, like :R-50, the code will look for
@@ -45,7 +45,7 @@ _C.MODEL.PRETRAINED_DETECTOR_CKPT = ""
 # -----------------------------------------------------------------------------
 _C.INPUT = CN()
 # Size of the smallest side of the image during training
-_C.INPUT.MIN_SIZE_TRAIN = (800,)  # (800,)
+_C.INPUT.MIN_SIZE_TRAIN = 800  # (800,)
 # Maximum size of the side of the image during training
 _C.INPUT.MAX_SIZE_TRAIN = 1333
 # Size of the smallest side of the image during testing
@@ -58,6 +58,10 @@ _C.INPUT.PIXEL_MEAN = [102.9801, 115.9465, 122.7717]
 _C.INPUT.PIXEL_STD = [1., 1., 1.]
 # Convert image to BGR format (for Caffe2 models), in range 0-255
 _C.INPUT.TO_BGR255 = True
+_C.INPUT.FLIP_PROB_TRAIN = 0.5
+
+# For YOLOV8
+_C.INPUT.PADDING = False
 
 # Image ColorJitter
 _C.INPUT.BRIGHTNESS = 0.0
@@ -105,11 +109,13 @@ _C.MODEL.BACKBONE = CN()
 # The string must match a function that is imported in modeling.model_builder
 # (e.g., 'FPN.add_fpn_ResNet101_conv5_body' to specify a ResNet-101-FPN
 # backbone)
-_C.MODEL.BACKBONE.CONV_BODY = "R-50-C4"
-
+_C.MODEL.BACKBONE.TYPE = "R-50-C4" # Can be yolov8 or yolov5 or VGG-16 or R-50-C4 or R-50-C5 or R-101-C4 or R-101-C5 or R-50-FPN or R-101-FPN or R-152-FPN
+_C.MODEL.BACKBONE.EXTRA_CONFIG = ""
 # Add StopGrad at a specified stage so the bottom layers are frozen
 _C.MODEL.BACKBONE.FREEZE_CONV_BODY_AT = 2
-
+# NMS threshold used on backbone proposals
+_C.MODEL.BACKBONE.NMS_THRESH = 0.7
+_C.MODEL.BACKBONE.FREEZE = False # to control whether to freeze the backbone for relations prediction, i.e. the preds will be counted as GT
 
 # ---------------------------------------------------------------------------- #
 # FPN options
@@ -130,6 +136,16 @@ _C.MODEL.GROUP_NORM.NUM_GROUPS = 32
 # GroupNorm's small constant in the denominator
 _C.MODEL.GROUP_NORM.EPSILON = 1e-5
 
+
+# ---------------------------------------------------------------------------- #
+# YOLO options
+# ---------------------------------------------------------------------------- #
+_C.MODEL.YOLO = CN()
+_C.MODEL.YOLO.WEIGHTS = ""
+_C.MODEL.YOLO.SIZE = "yolov8l" # Can be nano, small, medium or large
+_C.MODEL.YOLO.IMG_SIZE = 640 # input image size
+_C.MODEL.YOLO.OUT_CHANNELS = 256 # dim for the last layer of the YOLOv8 head
+_C.MODEL.BOX_HEAD = True # for Yolov8 we do not need box head
 
 # ---------------------------------------------------------------------------- #
 # RPN options
@@ -166,8 +182,7 @@ _C.MODEL.RPN.PRE_NMS_TOP_N_TEST = 6000
 # Number of top scoring RPN proposals to keep after applying NMS
 _C.MODEL.RPN.POST_NMS_TOP_N_TRAIN = 2000
 _C.MODEL.RPN.POST_NMS_TOP_N_TEST = 1000
-# NMS threshold used on RPN proposals
-_C.MODEL.RPN.NMS_THRESH = 0.7
+
 # Proposal height and width both need to be greater than RPN_MIN_SIZE
 # (a the scale used during training or inference)
 _C.MODEL.RPN.MIN_SIZE = 0
@@ -345,6 +360,7 @@ _C.MODEL.ROI_RELATION_HEAD.REL_PROP = [0.01858, 0.00057, 0.00051, 0.00109, 0.001
 
 _C.MODEL.VGG = CN()
 _C.MODEL.VGG.VGG16_OUT_CHANNELS= 512
+
 # ---------------------------------------------------------------------------- #
 # ResNe[X]t options (ResNets = {ResNet, ResNeXt}
 # Note that parts of a resnet may be used for both the backbone and the head

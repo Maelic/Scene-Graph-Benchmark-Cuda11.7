@@ -14,7 +14,6 @@ import datetime
 import numpy as np
 
 import torch
-import torch.distributed as dist
 
 from sgg_benchmark.config import cfg
 from sgg_benchmark.config.defaults_GCL import _C as cfg_GCL
@@ -32,37 +31,6 @@ from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir, save_config
 from sgg_benchmark.utils.metric_logger import MetricLogger
 from sgg_benchmark.utils.parser import default_argument_parser
-
-def train_one_epoch(model, optimizer, data_loader, device, epoch, max_norm, logger, cfg, scaler):
-    model.train()
-    metric_logger = MetricLogger(delimiter="  ")
-
-    header = 'Epoch: [{}]'.format(epoch)
-
-    for i, (images, targets, _) in enumerate(metric_logger.log_every(data_loader, cfg.SOLVER.PRINT_FREQ, header)):
-        images = images.to(device)
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
-        with torch.cuda.amp.autocast(enabled=cfg.DTYPE == "float16"):
-            loss_dict = model(images, targets)
-            losses = sum(loss for loss in loss_dict.values())
-
-        # reduce losses over all GPUs for logging purposes
-        loss_dict_reduced = reduce_loss_dict(loss_dict)
-        losses_reduced = sum(loss for loss in loss_dict_reduced.values())
-
-        optimizer.zero_grad()
-        scaler.scale(losses).backward()
-        scaler.unscale_(optimizer)
-        clip_grad_norm(model.parameters(), max_norm)
-        scaler.step(optimizer)
-        scaler.update()
-
-        metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
-        metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-
-    return metric_logger
-
 
 def train(cfg, logger, args):
     available_metrics = {"mR": "_mean_recall", "R": "_recall", "zR": "_zeroshot_recall", "ng-zR": "_ng_zeroshot_recall", "ng-R": "_recall_nogc", "ng-mR": "_ng_mean_recall", "topA": ["_accuracy_hit", "_accuracy_count"]}
@@ -86,10 +54,7 @@ def train(cfg, logger, args):
 
     # modules that should be always set in eval mode
     # their eval() method should be called after model.train() is called
-    if cfg.MODEL.BOX_HEAD:
-        eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
-    else:
-        eval_modules = (model.backbone,)
+    eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
  
     fix_eval_modules(eval_modules)
 
@@ -140,21 +105,12 @@ def train(cfg, logger, args):
     )
     # if there is certain checkpoint in output_dir, load it, else load pretrained detector
     if checkpointer.has_checkpoint():
-        extra_checkpoint_data = checkpointer.load(None, 
+        extra_checkpoint_data = checkpointer.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT, 
                                        update_schedule=cfg.SOLVER.UPDATE_SCHEDULE_DURING_LOAD)
         arguments.update(extra_checkpoint_data)
     else:
         # load_mapping is only used when we init current model from detection model.
-        checkpointer.load(None, with_optim=False, load_mapping=load_mapping)
-
-    # load backbone weights
-    logger_step(logger, 'Loading Backbone weights from '+cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
-    model.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
-    model.backbone.model.to(device)
-    mode = get_mode(cfg)
-
-    if mode == "predcls":
-        model.backbone.model.eval()
+        checkpointer.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT, with_optim=False, load_mapping=load_mapping)
 
     logger_step(logger, 'Building checkpointer')
 
@@ -186,10 +142,7 @@ def train(cfg, logger, args):
     end = time.time()
 
     print_first_grad = True
-    pbar = tqdm.tqdm(total=cfg.SOLVER.VAL_PERIOD)
-
     for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
-        pbar.update(1)
         if any(len(target) < 1 for target in targets):
             logger.error(f"Iteration={iteration + 1} || Image Ids used for training {_} || targets Length={[len(target) for target in targets]}" )
             continue
@@ -197,18 +150,15 @@ def train(cfg, logger, args):
         iteration = iteration + 1
         arguments["iteration"] = iteration
 
-        # if mode == "predcls":
-        #     model.roi_heads.train()
-        # else:
         model.train()
-        fix_eval_modules(eval_modules)        
+        fix_eval_modules(eval_modules)
 
         images = images.to(device)
         targets = [target.to(device) for target in targets]
 
         # Note: If mixed precision is not used, this ends up doing nothing
-        # with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
-        loss_dict = model(images, targets)
+        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
+            loss_dict = model(images, targets)
 
         losses = sum(loss for loss in loss_dict.values())
 
@@ -269,20 +219,18 @@ def train(cfg, logger, args):
             checkpointer.save("model_final", **arguments)
 
         val_result = None # used for scheduler updating
-        current_metric = None
+        mean_recall = None
         if cfg.SOLVER.TO_VAL and iteration % cfg.SOLVER.VAL_PERIOD == 0:
-            # reset pbar
-            pbar.close()
-            pbar = tqdm.tqdm(total=cfg.SOLVER.VAL_PERIOD)
             logger.info("Start validating")
             val_result = run_val(cfg, model, val_data_loaders, args['distributed'], logger)
+            mode = get_mode(cfg)
             results = val_result[mode+metric_to_track]
-            current_metric = float(np.mean(list(results.values())))
-            logger.info("Average validation Result for %s: %.4f" % (cfg.METRIC_TO_TRACK, current_metric))
+            metric = float(np.mean(list(results.values())))
+            logger.info("Average validation Result for %s: %.4f" % (cfg.METRIC_TO_TRACK, metric))
             
-            if current_metric > best_metric:
+            if metric > best_metric:
                 best_epoch = iteration
-                best_metric = current_metric
+                best_metric = metric
                 if args['save_best']:
                     to_remove = best_checkpoint
                     checkpointer.save("best_model_{:07d}".format(iteration), **arguments)
@@ -290,19 +238,20 @@ def train(cfg, logger, args):
 
                     # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
                     if to_remove is not None:
-                        os.remove(to_remove+".pth")
-                        logger.info("New best model saved at iteration {}".format(iteration))
+                        os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove+".pth"))
                 
             logger.info("Now best epoch in {} is : {}, with value is {}".format(cfg.METRIC_TO_TRACK+"@k", best_epoch, best_metric))
             
             if args['use_wandb']:
-                wandb.log({cfg.METRIC_TO_TRACK+"@k": val_result}, step=iteration)            
+                for k, v in results.items():
+                    res = cfg.METRIC_TO_TRACK+"@"+str(k)
+                    wandb.log({res: v}, step=iteration)            
  
         # scheduler should be called after optimizer.step() in pytorch>=1.1.0
         # https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
         if cfg.SOLVER.SCHEDULE.TYPE == "WarmupReduceLROnPlateau":
             # Using mean recall instead of traditionnal recall for scheduler
-            scheduler.step(current_metric, epoch=iteration)
+            scheduler.step(mean_recall, epoch=iteration)
             if scheduler.stage_count >= cfg.SOLVER.SCHEDULE.MAX_DECAY_STEP:
                 logger.info("Trigger MAX_DECAY_STEP at iteration {}.".format(iteration))
                 break
@@ -329,8 +278,7 @@ def train(cfg, logger, args):
 
 def fix_eval_modules(eval_modules):
     for module in eval_modules:
-        # module.model.eval()
-        for _, param in module.model.named_parameters():
+        for _, param in module.named_parameters():
             param.requires_grad = False
         # DO NOT use module.eval(), otherwise the module will be in the test mode, i.e., all self.training condition is set to False
 
@@ -347,7 +295,6 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     dataset_names = cfg.DATASETS.VAL
     val_result = []
     for dataset_name, val_data_loader in zip(dataset_names, val_data_loaders):
-        # shrink data_loader to only 100 samples
         dataset_result = inference(
                             cfg,
                             model,
@@ -370,6 +317,7 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     if distributed:
         gathered_result = all_gather(torch.tensor(dataset_result).cpu())
         gathered_result = [t.view(-1) for t in gathered_result]
+        print(gathered_result)
         # gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
         # valid_result = gathered_result[gathered_result>=0]
         # val_result = float(valid_result.mean())
@@ -381,20 +329,11 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     else:
         for k1, v1 in dataset_result.items():
             for k2, v2 in v1.items():
-                if isinstance(v2, list):
-                    # mean everything
-                    v2 = [np.mean(v) for v in v2]
                 dataset_result[k1][k2] = np.mean(v2)
 
     # support for multi gpu distributed testing
-    gathered_result = all_gather(torch.tensor(dataset_result).cpu())
-    gathered_result = [t.view(-1) for t in gathered_result]
-    gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
-    valid_result = gathered_result[gathered_result>=0]
-    val_result = float(valid_result.mean())
-    del gathered_result, valid_result
-    torch.cuda.empty_cache()
-    return val_result
+   
+    return dataset_result
 
 def run_test(cfg, model, distributed, logger):
     if distributed:

@@ -22,9 +22,10 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         if cfg.MODEL.KEYPOINT_ON and cfg.MODEL.ROI_KEYPOINT_HEAD.SHARE_BOX_FEATURE_EXTRACTOR:
             self.keypoint.feature_extractor = self.box.feature_extractor
 
-    def forward(self, features, proposals, targets=None, logger=None):
+    def forward(self, features, proposals, targets=None, logger=None, detections=None):
         losses = {}
-        x, detections, loss_box = self.box(features, proposals, targets)
+        if self.cfg.MODEL.BOX_HEAD or detections is None:
+            x, detections, loss_box = self.box(features, proposals, targets)
         if not self.cfg.MODEL.RELATION_ON:
             # During the relationship training stage, the bbox_proposal_network should be fixed, and no loss. 
             losses.update(loss_box)
@@ -79,7 +80,7 @@ def build_roi_heads(cfg, in_channels):
     if cfg.MODEL.RETINANET_ON:
         return []
 
-    if not cfg.MODEL.RPN_ONLY:
+    if cfg.MODEL.BOX_HEAD and not cfg.MODEL.RPN_ONLY:
         roi_heads.append(("box", build_roi_box_head(cfg, in_channels)))
     if cfg.MODEL.MASK_ON:
         roi_heads.append(("mask", build_roi_mask_head(cfg, in_channels)))
