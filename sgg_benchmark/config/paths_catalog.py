@@ -7,14 +7,13 @@ import copy
 
 class DatasetCatalog(object):
     if os.path.exists("/home/ubuntu/"): # for lambda cloud
-        DATA_DIR = "/home/ubuntu/Scene-Graph-Benchmark-Cuda11.7/"
         IMG_DIR = "/home/ubuntu/Scene-Graph-Benchmark-Cuda11.7/datasets/"
     elif os.path.exists("/home/maelic/Documents/PhD/Datasets/VisualGenome/"): # for local machine
-        DATA_DIR = "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/"
         IMG_DIR = "/home/maelic/Documents/PhD/Datasets/VisualGenome/"
     elif os.path.exists("/home/maelic/Documents/Datasets/VG"): # for local machine
-        DATA_DIR = "/home/maelic/Documents/Scene-Graph-Benchmark-Cuda11.7/"
         IMG_DIR = "/home/maelic/Documents/Datasets/VG/"
+    # get path of this file
+    DATA_DIR = "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/"
     DATASETS = {
         "VG_stanford_filtered": {
             "img_dir": IMG_DIR+"VG_100K",
@@ -57,6 +56,13 @@ class DatasetCatalog(object):
             "dict_file": "VG/VrR-VG/VrR_VG-SGG-dicts-with-attri.json",
             "image_file": "VG/VrR-VG/image_data.json",
             "capgraphs_file": "VG/vg_capgraphs_anno.json",
+        },
+        "VG_indoor_filtered": {
+            "img_dir": IMG_DIR+"VG_100K",
+            "roidb_file": DATA_DIR+"datasets/IndoorVG/VG-SGG.h5",
+            "dict_file": DATA_DIR+"datasets/IndoorVG/VG-SGG-dicts.json",
+            "image_file": DATA_DIR+"datasets/vg/image_data.json",
+            "zeroshot_file": DATA_DIR+"datasets/IndoorVG/zero_shot_triplets.pytorch",
         },
     }
 

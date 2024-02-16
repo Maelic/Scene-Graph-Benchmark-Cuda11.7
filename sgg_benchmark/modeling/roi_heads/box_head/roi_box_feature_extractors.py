@@ -4,10 +4,55 @@ from torch import nn
 from torch.nn import functional as F
 
 from sgg_benchmark.modeling import registry
-from sgg_benchmark.modeling.backbone import resnet
-from sgg_benchmark.modeling.poolers import Pooler
+from sgg_benchmark.modeling.backbone import resnet, fbnet, vgg, yolov8
+from sgg_benchmark.modeling.poolers import Pooler, PoolerYOLO
 from sgg_benchmark.modeling.make_layers import group_norm
 from sgg_benchmark.modeling.make_layers import make_fc
+
+@registry.ROI_BOX_FEATURE_EXTRACTORS.register("YOLOV8FeatureExtractor")
+class YOLOV8FeatureExtractor(nn.Module):
+    def __init__(self, cfg, in_channels, half_out=False, cat_all_levels=False):
+        super(YOLOV8FeatureExtractor, self).__init__()
+
+        resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
+        sampling_ratio = cfg.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO
+        pooler = PoolerYOLO(
+            output_size=(resolution, resolution),
+            sampling_ratio=sampling_ratio,
+            in_channels=in_channels,
+            cat_all_levels=cat_all_levels,
+        )
+
+        self.pooler = pooler
+
+        input_size = in_channels * resolution ** 2
+        representation_size = cfg.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM
+        use_gn = cfg.MODEL.ROI_BOX_HEAD.USE_GN
+        self.pooler = pooler
+        self.fc6 = make_fc(input_size, representation_size, use_gn)
+
+        if half_out:
+            out_dim = int(representation_size / 2)
+        else:
+            out_dim = representation_size
+        
+        self.fc7 = make_fc(representation_size, out_dim, use_gn)
+        self.resize_channels = input_size
+        self.out_channels = out_dim
+
+    def forward(self, x, proposals, reduce=False):
+        x = self.pooler(x, proposals, reduce)
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc6(x))
+        x = F.relu(self.fc7(x))
+
+        return x
+    
+    def forward_without_pool(self, x):
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc6(x))
+        x = F.relu(self.fc7(x))
+        return x
 
 @registry.ROI_BOX_FEATURE_EXTRACTORS.register("ResNet50Conv5ROIFeatureExtractor")
 class ResNet50Conv5ROIFeatureExtractor(nn.Module):

@@ -41,7 +41,7 @@ class LevelMapper(object):
         target_lvls = torch.floor(self.lvl0 + torch.log2(s / self.s0 + self.eps))
         target_lvls = torch.clamp(target_lvls, min=self.k_min, max=self.k_max)
         return target_lvls.to(torch.int64) - self.k_min
-
+        
 
 class Pooler(nn.Module):
     """
@@ -134,6 +134,105 @@ class Pooler(nn.Module):
             result = self.reduce_channel(result)
         return result
 
+class LevelMapperYOLO(object):
+    """Determine which FPN level each RoI in a set of RoIs should map to based
+    on the heuristic in the FPN paper.
+    """
+
+    def __init__(self):
+        self.map_scales = [20,40,80] # ideally this should be passed as an arg somewhere
+
+    def __call__(self, boxlists):
+        """
+        Assign each ROI to a feature map based on its area.
+        Args:
+            boxlists (list[BoxList])
+        Returns:
+            target_lvls (Tensor[N]): A tensor of the same length as rois, where each element is the target level of the corresponding ROI.
+        """
+        # Calculate the area of each ROI
+        areas = torch.cat([boxlist.area() for boxlist in boxlists])
+
+        # Assign each ROI to a feature map
+        target_lvls = torch.zeros_like(areas)
+        target_lvls[areas < self.map_scales[1]*self.map_scales[1]] = 0.0
+        target_lvls[(areas >= self.map_scales[1]*self.map_scales[1]) & (areas < self.map_scales[2]*self.map_scales[2])] = 1.0
+        target_lvls[areas >= self.map_scales[2]*self.map_scales[2]] = 2.0
+
+        return target_lvls
+    
+class PoolerYOLO(nn.Module):
+    def __init__(self, output_size, sampling_ratio, in_channels=256, cat_all_levels=False):
+        super(PoolerYOLO, self).__init__()
+        self.output_size = output_size
+        self.sampling_ratio = sampling_ratio
+        self.cat_all_levels = cat_all_levels
+        self.in_channels = [256,512,512]
+        self.out_channels = 256
+        self.num_features = 3
+
+        self.reduce_channel = make_conv3x3(self.out_channels * self.num_features, self.out_channels, dilation=1, stride=1, use_relu=True)
+
+
+    def forward(self, x, boxes, reduce=False):
+        dtype, device = x[0].dtype, x[0].device
+
+        if reduce:
+            # perfrom a conv 1x1 on all the feature maps one by one to reduce the channels
+            for i in range(self.num_features):
+                if x[i].shape[1] != self.out_channels:
+                    x[i] = nn.Conv2d(self.in_channels[i], self.out_channels, kernel_size=1, stride=1, padding=0, device=device)(x[i])
+
+        num_levels = len(x)
+        assert num_levels <= self.num_features
+        rois = self.convert_to_roi_format(boxes)
+        assert rois.size(0) > 0
+
+        # Infer scales from the actual image
+        scales = [box.size[0] / feature_map.size(-1) for box, feature_map in zip(boxes, x)]
+        poolers = [ROIAlign(self.output_size, spatial_scale=scale, sampling_ratio=self.sampling_ratio) for scale in scales]
+
+        if num_levels == 1:
+            return poolers[0](x[0], rois)
+
+        map_levels = LevelMapperYOLO()
+        levels = map_levels(boxes)
+
+        num_rois = len(rois)
+        output_size = self.output_size[0]
+
+        final_channels = self.out_channels * num_levels if self.cat_all_levels else self.out_channels
+        result = torch.zeros(
+            (num_rois, final_channels, output_size, output_size),
+            dtype=dtype,
+            device=device,
+        )
+        for level, (per_level_feature, pooler) in enumerate(zip(x, poolers)):
+
+            if self.cat_all_levels:
+                result[:,level*self.out_channels:(level+1)*self.out_channels,:,:] = pooler(per_level_feature, rois).to(dtype)
+            else:
+                idx_in_level = torch.nonzero(levels == level).squeeze(1)
+                rois_per_level = rois[idx_in_level]
+                result[idx_in_level] = pooler(per_level_feature, rois_per_level).to(dtype)
+
+        if self.cat_all_levels:           
+            result = self.reduce_channel(result)
+
+        return result
+
+    def convert_to_roi_format(self, boxes):
+        concat_boxes = cat([b.bbox for b in boxes], dim=0)
+        device, dtype = concat_boxes.device, concat_boxes.dtype
+        ids = cat(
+            [
+                torch.full((len(b), 1), i, dtype=dtype, device=device)
+                for i, b in enumerate(boxes)
+            ],
+            dim=0,
+        )
+        rois = torch.cat([ids, concat_boxes], dim=1)
+        return rois
 
 def make_pooler(cfg, head_name):
     resolution = cfg.MODEL[head_name].POOLER_RESOLUTION

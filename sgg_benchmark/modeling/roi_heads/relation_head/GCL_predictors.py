@@ -167,7 +167,6 @@ class TransLike_GCL(nn.Module):
                         act_idx = num_groups - j
                         threshold_cur = self.sample_rate_matrix[act_idx - 1][rel_tar]
                         if random_num <= threshold_cur or act_idx < rel_idx:
-                            # print('%d-%d-%d-%.2f-%.2f'%(i, rel_idx, act_idx, random_num, threshold_cur))
                             for k in range(act_idx):
                                 cur_chosen_matrix[k].append(i)
                             break
@@ -508,7 +507,6 @@ class MotifsLike_GCL(nn.Module):
         self.use_bias = config.GLOBAL_SETTING.USE_BIAS
 
         # load class dict
-        statistics = get_dataset_statistics(config)
         obj_classes, rel_classes = statistics['obj_classes'], statistics['rel_classes']
         assert self.num_obj_cls==len(obj_classes)
         assert self.num_rel_cls==len(rel_classes)
@@ -649,7 +647,6 @@ class MotifsLike_GCL(nn.Module):
                         act_idx = num_groups - j
                         threshold_cur = self.sample_rate_matrix[act_idx - 1][rel_tar]
                         if random_num <= threshold_cur or act_idx < rel_idx:
-                            # print('%d-%d-%d-%.2f-%.2f'%(i, rel_idx, act_idx, random_num, threshold_cur))
                             for k in range(act_idx):
                                 cur_chosen_matrix[k].append(i)
                             break
@@ -985,7 +982,6 @@ class VCTree_GCL(nn.Module):
                         act_idx = num_groups - j
                         threshold_cur = self.sample_rate_matrix[act_idx - 1][rel_tar]
                         if random_num <= threshold_cur or act_idx < rel_idx:
-                            # print('%d-%d-%d-%.2f-%.2f'%(i, rel_idx, act_idx, random_num, threshold_cur))
                             for k in range(act_idx):
                                 cur_chosen_matrix[k].append(i)
                             break
@@ -1189,6 +1185,7 @@ class TransLikePredictor(nn.Module):
         # load class dict
         statistics = get_dataset_statistics(config)
         obj_classes, rel_classes = statistics['obj_classes'], statistics['rel_classes']
+
         assert self.num_obj_cls == len(obj_classes)
         assert self.num_rel_cls == len(rel_classes)
         # module construct

@@ -254,10 +254,15 @@ class SGPairAccuracy(SceneGraphEvaluation):
         self.result_dict[mode + '_accuracy_count'] = {20: [], 50: [], 100: []}
 
     def generate_print_string(self, mode):
+        # mean everything
+        for k in self.result_dict[mode + '_accuracy_hit']:
+            self.result_dict[mode + '_accuracy_hit'][k] = np.mean(self.result_dict[mode + '_accuracy_hit'][k])
+            self.result_dict[mode + '_accuracy_count'][k] = np.mean(self.result_dict[mode + '_accuracy_count'][k])
+
         result_str = 'SGG eval: '
         for k, v in self.result_dict[mode + '_accuracy_hit'].items():
-            a_hit = np.mean(v)
-            a_count = np.mean(self.result_dict[mode + '_accuracy_count'][k])
+            a_hit = v
+            a_count = self.result_dict[mode + '_accuracy_count'][k]
             result_str += '    A @ %d: %.4f; ' % (k, a_hit/a_count)
         result_str += ' for mode=%s, type=TopK Accuracy.' % mode
         result_str += '\n'
@@ -287,7 +292,6 @@ class SGPairAccuracy(SceneGraphEvaluation):
                     gt_pair_match = []
                 self.result_dict[mode + '_accuracy_hit'][k].append(float(len(gt_pair_match)))
                 self.result_dict[mode + '_accuracy_count'][k].append(float(gt_rels.shape[0]))
-
 
 """
 Mean Recall: Proposed in:

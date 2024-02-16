@@ -8,24 +8,24 @@ from sgg_benchmark.modeling.make_layers import conv_with_kaiming_uniform
 from . import fpn as fpn_module
 from . import resnet
 from . import vgg
-from . import yolov8
+from .yolov8 import YoloV8
 
 @registry.BACKBONES.register("yolov8")
 def build_yolov8_backbone(cfg):
-    model_size = cfg.MODEL.YOLOV8.SIZE
-    model = yolov8(cfg.MODEL.BACKBONE.EXTRA_CONFIG, model_size)
-    body = model.model.model[:9] # according to https://github.com/ultralytics/ultralytics/issues/189 this is the body
-    head = model.model.model[9:] # according to https://github.com/ultralytics/ultralytics/issues/189 this is the head
-    model = nn.Sequential(OrderedDict([("body", body), ("head", head)]))
+    nc = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES -1
+
+    model = YoloV8(cfg, nc=nc)
+    model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS
+
     return model
 
 @registry.BACKBONES.register("yolov5")
 def build_yolov5_backbone(cfg):
-    model_size = cfg.MODEL.YOLOV8.SIZE
-    model = yolov8(cfg, model_size)
-    body = model.model.model[:9]
-    head = model.model.model[9:]
-    model = nn.Sequential(OrderedDict([("body", body), ("head", head)]))
+    nc = cfg.MODEL.ROI_BOX_HEAD.NUM_CLASSES -1
+
+    model = YoloV8(cfg, nc=nc)
+    model.out_channels = cfg.MODEL.YOLO.OUT_CHANNELS
+
     return model
 
 @registry.BACKBONES.register("VGG-16")

@@ -1,12 +1,13 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 from . import transforms as T
 
-
 def build_transforms(cfg, is_train=True):
+    padding = cfg.INPUT.PADDING
+
     if is_train:
         min_size = cfg.INPUT.MIN_SIZE_TRAIN
         max_size = cfg.INPUT.MAX_SIZE_TRAIN
-        flip_horizontal_prob = 0.5  # cfg.INPUT.FLIP_PROB_TRAIN
+        flip_horizontal_prob = cfg.INPUT.FLIP_PROB_TRAIN
         flip_vertical_prob = cfg.INPUT.VERTICAL_FLIP_PROB_TRAIN
         brightness = cfg.INPUT.BRIGHTNESS
         contrast = cfg.INPUT.CONTRAST
@@ -33,14 +34,25 @@ def build_transforms(cfg, is_train=True):
         hue=hue,
     )
 
-    transform = T.Compose(
-        [
-            color_jitter,
-            T.Resize(min_size, max_size),
-            T.RandomHorizontalFlip(flip_horizontal_prob),
-            T.RandomVerticalFlip(flip_vertical_prob),
-            T.ToTensor(),
-            normalize_transform,
-        ]
-    )
+    if padding:
+        transform = T.Compose(
+            [
+                color_jitter,
+                T.RandomHorizontalFlip(flip_horizontal_prob),
+                T.RandomVerticalFlip(flip_vertical_prob),
+                T.LetterBox(new_shape=(min_size, max_size), auto=True),
+                T.ToTensorYOLO(),
+            ]
+        )
+    else:
+        transform = T.Compose(
+            [
+                color_jitter,
+                T.Resize(min_size, max_size),
+                T.RandomHorizontalFlip(flip_horizontal_prob),
+                T.RandomVerticalFlip(flip_vertical_prob),
+                T.ToTensor(),
+                normalize_transform,
+            ]
+        )
     return transform

@@ -8,16 +8,21 @@ import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 import random
+import cv2
 
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 
 BOX_SCALE = 1024  # Scale at which we have the boxes
-
+try:
+    from loguru import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
 class VGDataset(torch.utils.data.Dataset):
 
     def __init__(self, split, img_dir, roidb_file, dict_file, image_file, zeroshot_file, transforms=None,
-                filter_empty_rels=True, num_im=13223, num_val_im=5000,
+                filter_empty_rels=True, num_im=-1, num_val_im=5000, format='yolo',
                 filter_duplicate_rels=True, filter_non_overlap=True, flip_aug=False, custom_eval=False, custom_path=''):
         """
         Torch dataset for VisualGenome
@@ -49,17 +54,16 @@ class VGDataset(torch.utils.data.Dataset):
         self.filter_non_overlap = filter_non_overlap and self.split == 'train'
         self.filter_duplicate_rels = filter_duplicate_rels and self.split == 'train'
         self.transforms = transforms
-        num_im=13223
+        self.format = format
 
-        self.ind_to_classes, self.ind_to_predicates , self.ind_to_attributes = load_info(dict_file)
-
+        self.ind_to_classes, self.ind_to_predicates ,  = load_info(dict_file) # self.ind_to_attributes
         self.categories = {i : self.ind_to_classes[i] for i in range(len(self.ind_to_classes))}
 
         self.custom_eval = custom_eval
         if self.custom_eval:
             self.get_custom_imgs(custom_path)
         else:
-            self.split_mask, self.gt_boxes, self.gt_classes, self.gt_attributes, self.relationships = load_graphs( 
+            self.split_mask, self.gt_boxes, self.gt_classes,  self.relationships = load_graphs( # self.gt_attributes,
                 self.roidb_file, self.split, num_im, num_val_im=num_val_im,
                 filter_empty_rels=filter_empty_rels,
                 filter_non_overlap=self.filter_non_overlap,
@@ -67,19 +71,11 @@ class VGDataset(torch.utils.data.Dataset):
             self.filenames, self.img_info = load_image_filenames(img_dir, image_file) # length equals to split_mask
             self.filenames = [self.filenames[i] for i in np.where(self.split_mask)[0]]
             self.img_info = [self.img_info[i] for i in np.where(self.split_mask)[0]]
-            
-            # self.filenames = self.filenames[len(self.filenames)//2:]
-            # self.img_info = self.img_info[len(self.img_info)//2:]
-            
+
             assert(len(self.filenames) == len(self.gt_boxes) == len(self.gt_classes) == len(self.relationships) == len(self.img_info))
             final_dict = []
             for file, info, boxes, classes, rels in zip(self.filenames, self.img_info, self.gt_boxes, self.gt_classes, self.relationships):
                 final_dict.append({'width': info['width'], 'height': info['height'], 'img_path': file, 'boxes': np.array(boxes, dtype=np.float32), 'labels': np.array(classes), 'relations': np.array(rels)})
-
-            # to pickle
-            import pickle
-            with open('vg_sup_data.pk', 'wb') as f:
-                pickle.dump(final_dict, f)
 
 
     def __getitem__(self, index):
@@ -92,14 +88,18 @@ class VGDataset(torch.utils.data.Dataset):
             if self.transforms is not None:
                 img, target = self.transforms(img, target)
             return img, target, index
-        
-        img = Image.open(self.filenames[index]).convert("RGB")
-        if img.size[0] != self.img_info[index]['width'] or img.size[1] != self.img_info[index]['height']:
-            print('='*20, ' ERROR index ', str(index), ' ', str(img.size), ' ', str(self.img_info[index]['width']), ' ', str(self.img_info[index]['height']), ' ', '='*20)
-
         flip_img = (random.random() > 0.5) and self.flip_aug and (self.split == 'train')
-        
+
         target = self.get_groundtruth(index, flip_img)
+
+        # if self.format == 'yolo':
+        img = cv2.imread(self.filenames[index])
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # return img, target, index
+
+        # img = Image.open(self.filenames[index]).convert("RGB")        
+        # if img.size[0] != self.img_info[index]['width'] or img.size[1] != self.img_info[index]['height']:
+        #     logger.debug('='*20, ' ERROR index ', str(index), ' ', str(img.size), ' ', str(self.img_info[index]['width']), ' ', str(self.img_info[index]['height']), ' ', '='*20)        
 
         if flip_img:
             img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
@@ -111,7 +111,7 @@ class VGDataset(torch.utils.data.Dataset):
 
 
     def get_statistics(self):
-        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count = get_VG_statistics(img_dir=self.img_dir, roidb_file=self.roidb_file, dict_file=self.dict_file,
+        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop = get_VG_statistics(img_dir=self.img_dir, roidb_file=self.roidb_file, dict_file=self.dict_file,
                                                 image_file=self.image_file, zeroshot_file=self.zeroshot_file, must_overlap=True)
         eps = 1e-3
         bg_matrix += 1
@@ -125,7 +125,8 @@ class VGDataset(torch.utils.data.Dataset):
             'rel_classes': self.ind_to_predicates,
             'predicate_new_order': predicate_new_order,
             'predicate_new_order_count': predicate_new_order_count,
-            'att_classes': self.ind_to_attributes,
+            'pred_prop': pred_prop,
+            #'att_classes': self.ind_to_attributes,
         }
 
         return result
@@ -168,7 +169,7 @@ class VGDataset(torch.utils.data.Dataset):
         target = BoxList(box, (w, h), 'xyxy') # xyxy
 
         target.add_field("labels", torch.from_numpy(self.gt_classes[index]))
-        target.add_field("attributes", torch.from_numpy(self.gt_attributes[index]))
+        #target.add_field("attributes", torch.from_numpy(self.gt_attributes[index]))
 
         relation = self.relationships[index].copy() # (num_rel, 3)
         if self.filter_duplicate_rels:
@@ -236,13 +237,20 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
         for p in k:
             for i, x in enumerate(p):
                 stats_pred[i] += x
+    # compute proportion of each predicate
+    total_pred = sum(stats_pred.values())
+    pred_prop = [v / total_pred for k, v in stats_pred.items()] # this will replace cfg.MODEL.REL_PROP
+    # pop first item
+    pred_prop.pop(0)
+    print(pred_prop)
+
     # add background value
     stats_pred[0] = 3024465
     stats_pred = dict(sorted(stats_pred.items(), key=lambda x: x[1], reverse=True))
     predicate_new_order = list(stats_pred.keys())
     predicate_new_order_count = list(stats_pred.values())
 
-    return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count
+    return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop
     
 
 def box_filter(boxes, must_overlap=False):
@@ -291,9 +299,7 @@ def correct_img_info(img_dir, image_file):
         filename = os.path.join(img_dir, basename)
         img_data = Image.open(filename).convert("RGB")
         if img['width'] != img_data.size[0] or img['height'] != img_data.size[1]:
-            print('--------- False id: ', i, '---------')
-            print(img_data.size)
-            print(img)
+            logger.debug("Wrong image size for %s", filename)
             data[i]['width'] = img_data.size[0]
             data[i]['height'] = img_data.size[1]
     with open(image_file, 'w') as outfile:  
@@ -310,12 +316,16 @@ def load_info(dict_file, add_bg=True):
     if add_bg:
         info['label_to_idx']['__background__'] = 0
         info['predicate_to_idx']['__background__'] = 0
+        #info['attribute_to_idx']['__background__'] = 0
 
     class_to_ind = info['label_to_idx']
     predicate_to_ind = info['predicate_to_idx']
-
+    #attribute_to_ind = info['attribute_to_idx']
     ind_to_classes = sorted(class_to_ind, key=lambda k: class_to_ind[k])
     ind_to_predicates = sorted(predicate_to_ind, key=lambda k: predicate_to_ind[k])
+    #ind_to_attributes = sorted(attribute_to_ind, key=lambda k: attribute_to_ind[k])
+
+    return ind_to_classes, ind_to_predicates #, ind_to_attributes
 
     if "attribute_to_idx" in info.keys():
         attribute_to_ind = info['attribute_to_idx']
@@ -419,7 +429,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
 
     # Get box information
     all_labels = roi_h5['labels'][:, 0]
-    all_attributes = roi_h5['attributes'][:, :]
+    #all_attributes = roi_h5['attributes'][:, :]
     all_boxes = roi_h5['boxes_{}'.format(BOX_SCALE)][:]  # cx,cy,w,h
     assert np.all(all_boxes[:, :2] >= 0)  # sanity check
     assert np.all(all_boxes[:, 2:] > 0)  # no empty box
@@ -442,7 +452,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
     # Get everything by image.
     boxes = []
     gt_classes = []
-    gt_attributes = []
+    #gt_attributes = []
     relationships = []
     for i in range(len(image_index)):
         i_obj_start = im_to_first_box[i]
@@ -452,7 +462,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
 
         boxes_i = all_boxes[i_obj_start : i_obj_end + 1, :]
         gt_classes_i = all_labels[i_obj_start : i_obj_end + 1]
-        gt_attributes_i = all_attributes[i_obj_start : i_obj_end + 1, :]
+        #gt_attributes_i = all_attributes[i_obj_start : i_obj_end + 1, :]
 
         if i_rel_start >= 0:
             predicates = _relation_predicates[i_rel_start : i_rel_end + 1]
@@ -481,20 +491,7 @@ def load_graphs(roidb_file, split, num_im, num_val_im, filter_empty_rels, filter
 
         boxes.append(boxes_i)
         gt_classes.append(gt_classes_i)
-        gt_attributes.append(gt_attributes_i)
+        #gt_attributes.append(gt_attributes_i)
         relationships.append(rels)
 
-    # # only return first half of the data
-    # if split == 'train':
-    #     split_mask = split_mask[:len(split_mask)//2]
-    #     boxes = boxes[:len(boxes)//2]
-    #     gt_classes = gt_classes[:len(gt_classes)//2]
-    #     gt_attributes = gt_attributes[:len(gt_attributes)//2]
-    #     relationships = relationships[:len(relationships)//2]
-    # else:
-    #     split_mask = split_mask[len(split_mask)//2:]
-    #     boxes = boxes[len(boxes)//2:]
-    #     gt_classes = gt_classes[len(gt_classes)//2:]
-    #     gt_attributes = gt_attributes[len(gt_attributes)//2:]
-    #     relationships = relationships[len(relationships)//2:]
-    return split_mask, boxes, gt_classes, gt_attributes, relationships 
+    return split_mask, boxes, gt_classes, relationships # gt_attributes,

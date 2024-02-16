@@ -6,6 +6,14 @@ from .bounding_box import BoxList
 
 from sgg_benchmark.layers import nms as _box_nms
 
+def squeeze_tensor(tensor):
+    tensor = torch.squeeze(tensor)
+    try:
+        len(tensor)
+    except TypeError:
+        tensor.unsqueeze_(0)
+    return tensor
+
 def boxlist_nms(boxlist, nms_thresh, max_proposals=-1, score_field="scores"):
     """
     Performs non-maximum suppression on a boxlist, with scores specified

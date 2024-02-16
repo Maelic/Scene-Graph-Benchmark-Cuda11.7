@@ -194,7 +194,7 @@ def make_rpn_postprocessor(config, rpn_box_coder, is_train):
         pre_nms_top_n = config.MODEL.RPN.PRE_NMS_TOP_N_TEST
         post_nms_top_n = config.MODEL.RPN.POST_NMS_TOP_N_TEST
     fpn_post_nms_per_batch = config.MODEL.RPN.FPN_POST_NMS_PER_BATCH
-    nms_thresh = config.MODEL.RPN.NMS_THRESH
+    nms_thresh = config.MODEL.BACKBONE.NMS_THRESH
     min_size = config.MODEL.RPN.MIN_SIZE
     add_gt = config.MODEL.ROI_RELATION_HEAD.ADD_GTBOX_TO_PROPOSAL_IN_TRAIN
     box_selector = RPNPostProcessor(

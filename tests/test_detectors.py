@@ -76,8 +76,8 @@ def create_model(cfg, device):
 
 def create_random_input(cfg, device):
     ret = []
-    for x in cfg.INPUT.MIN_SIZE_TRAIN:
-        ret.append(torch.rand(3, x, int(x * 1.2)))
+    x = cfg.INPUT.MIN_SIZE_TRAIN
+    ret.append(torch.rand(3, x, int(x * 1.2)))
     ret = to_image_list(ret, cfg.DATALOADER.SIZE_DIVISIBILITY)
     ret = ret.to(device)
     return ret

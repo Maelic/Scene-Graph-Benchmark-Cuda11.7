@@ -299,7 +299,9 @@ class LSTMContext(nn.Module):
         # Sort by the confidence of the maximum detection.
         perm, inv_perm, ls_transposed = self.sort_rois(proposals)
         # Pass object features, sorted by score, into the encoder LSTM
-        obj_inp_rep = obj_feats[perm].contiguous()
+        # Assuming obj_feats is a 2D tensor
+        num_features = self.obj_dim+self.embed_dim + 128  # The number of features the RNN is expecting
+        obj_inp_rep = obj_feats[perm, :num_features].contiguous()
         input_packed = PackedSequence(obj_inp_rep, ls_transposed)
         encoder_rep = self.obj_ctx_rnn(input_packed)[0][0]
         encoder_rep = self.lin_obj_h(encoder_rep) # map to hidden_dim
@@ -354,12 +356,12 @@ class LSTMContext(nn.Module):
 
     def forward(self, x, proposals, rel_pair_idxs, logger=None, all_average=False, ctx_average=False):
         # labels will be used in DecoderRNN during training (for nms)
-        if self.training or self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
-            obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
+        if self.training or self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE: # backbone is completely frozen and we consider predictions as GT
+            obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0).float()
         else:
             obj_labels = None
 
-        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
+        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL or self.cfg.MODEL.BACKBONE.FREEZE:
             obj_embed = self.obj_embed1(obj_labels.long())
         else:
             obj_logits = cat([proposal.get_field("predict_logits") for proposal in proposals], dim=0).detach()

@@ -132,6 +132,7 @@ sgg_benchmark/modeling/roi_heads/relation_head/sampling.py
 sgg_benchmark/modeling/roi_heads/relation_head/models/__init__.py
 sgg_benchmark/modeling/roi_heads/relation_head/models/model_Cross_Attention.py
 sgg_benchmark/modeling/roi_heads/relation_head/models/model_Hybrid_Attention.py
+sgg_benchmark/modeling/roi_heads/relation_head/models/model_gpsnet.py
 sgg_benchmark/modeling/roi_heads/relation_head/models/model_motifs.py
 sgg_benchmark/modeling/roi_heads/relation_head/models/model_motifs_with_attribute.py
 sgg_benchmark/modeling/roi_heads/relation_head/models/model_msg_passing.py
