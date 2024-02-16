@@ -289,7 +289,8 @@ def train(cfg, logger, args):
 
                     # We delete last checkpoint only after succesfuly writing a new one, in case of out of memory
                     if to_remove is not None:
-                        os.remove(os.path.join(cfg.OUTPUT_DIR, to_remove+".pth"))
+                        os.remove(to_remove+".pth")
+                        logger.info("New best model saved at iteration {}".format(iteration))
                 
             logger.info("Now best epoch in {} is : {}, with value is {}".format(cfg.METRIC_TO_TRACK+"@k", best_epoch, best_metric))
             
