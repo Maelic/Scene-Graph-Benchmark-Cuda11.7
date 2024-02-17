@@ -276,6 +276,9 @@ def train(cfg, logger, args):
             pbar = tqdm.tqdm(total=cfg.SOLVER.VAL_PERIOD)
             logger.info("Start validating")
             val_result = run_val(cfg, model, val_data_loaders, args['distributed'], logger)
+            if mode+metric_to_track not in val_result.keys():
+                logger.error("Metric to track not found in validation result, default to R")
+                metric_to_track = "_recall"
             results = val_result[mode+metric_to_track]
             current_metric = float(np.mean(list(results.values())))
             logger.info("Average validation Result for %s: %.4f" % (cfg.METRIC_TO_TRACK, current_metric))
@@ -325,7 +328,7 @@ def train(cfg, logger, args):
     print('\n\n')
     logger.info("Best Epoch is : %.4f" % best_epoch)
 
-    return model, best_checkpoint 
+    return model, last_filename 
 
 def fix_eval_modules(eval_modules):
     for module in eval_modules:
@@ -367,14 +370,9 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
 
     # VG has only one val dataset
     dataset_result = val_result[0]
+    if len(dataset_result) == 1:
+        return dataset_result
     if distributed:
-        gathered_result = all_gather(torch.tensor(dataset_result).cpu())
-        gathered_result = [t.view(-1) for t in gathered_result]
-        # gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
-        # valid_result = gathered_result[gathered_result>=0]
-        # val_result = float(valid_result.mean())
-        # del gathered_result, valid_result
-        # torch.cuda.empty_cache()
         for k1, v1 in dataset_result.items():
             for k2, v2 in v1.items():
                 dataset_result[k1][k2] = torch.distributed.all_reduce(torch.tensor(np.mean(v2)).to(device).unsqueeze(0)).item() / torch.distributed.get_world_size()
@@ -386,15 +384,7 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
                     v2 = [np.mean(v) for v in v2]
                 dataset_result[k1][k2] = np.mean(v2)
 
-    # support for multi gpu distributed testing
-    gathered_result = all_gather(torch.tensor(dataset_result).cpu())
-    gathered_result = [t.view(-1) for t in gathered_result]
-    gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
-    valid_result = gathered_result[gathered_result>=0]
-    val_result = float(valid_result.mean())
-    del gathered_result, valid_result
-    torch.cuda.empty_cache()
-    return val_result
+    return dataset_result
 
 def run_test(cfg, model, distributed, logger):
     if distributed:

@@ -8,7 +8,7 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Scene-Graph-Benchmark-Cuda11.7/datasets/IndoorVG/yolov8l_indoorvg.pt"
+  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/datasets/IndoorVG/yolov8l_indoorvg.pt"
   BACKBONE:
     TYPE: "yolov8"
     NMS_THRESH: 0.7

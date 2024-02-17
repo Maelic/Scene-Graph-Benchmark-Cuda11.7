@@ -12,7 +12,7 @@ from sgg_benchmark.data import get_dataset_statistics
 from sgg_benchmark.structures.bounding_box import BoxList
 from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 from sgg_benchmark.utils.miscellaneous import intersect_2d, argsort_desc, bbox_overlaps
-from sgg_benchmark.data.datasets.evaluation.vg.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall, SGInformativeRecall
+from sgg_benchmark.data.datasets.evaluation.vg.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall, SGInformativeRecall, SGF1Score
 from sgg_benchmark.config.paths_catalog import DatasetCatalog
 
 def do_vg_evaluation(
@@ -156,6 +156,11 @@ def do_vg_evaluation(
         eval_ng_mean_recall.register_container(mode)
         evaluator['eval_ng_mean_recall'] = eval_ng_mean_recall
 
+        # compute F1 score
+        eval_f1_score = SGF1Score(result_dict)
+        eval_f1_score.register_container(mode)
+        evaluator['eval_f1_score'] = eval_f1_score
+
         if informative:
             eval_informative_recall = SGInformativeRecall(result_dict)
             eval_informative_recall.register_container(mode)
@@ -183,6 +188,9 @@ def do_vg_evaluation(
         # calculate mean recall
         eval_mean_recall.calculate_mean_recall(mode)
         eval_ng_mean_recall.calculate_mean_recall(mode)
+
+        # calculate f1 score
+        eval_f1_score.calculate_f1(global_container['result_dict'], mode)
         
         # print result
         result_str += eval_recall.generate_print_string(mode)
@@ -191,6 +199,8 @@ def do_vg_evaluation(
         result_str += eval_ng_zeroshot_recall.generate_print_string(mode)
         result_str += eval_mean_recall.generate_print_string(mode)
         result_str += eval_ng_mean_recall.generate_print_string(mode)
+        result_str += eval_f1_score.generate_print_string(mode)
+        
         if informative:
             result_str += eval_informative_recall.generate_print_string(mode)
         
@@ -204,18 +214,9 @@ def do_vg_evaluation(
     if "relations" in iou_types:
         if output_folder:
             torch.save(result_dict, os.path.join(output_folder, 'result_dict.pytorch'))
-        recall = float(np.mean(result_dict[mode + '_recall'][100]))
-        mrecall = float(result_dict[mode + '_mean_recall'][100])
-        if cfg.METRIC_TO_TRACK == "R":
-            return recall
-        elif cfg.METRIC_TO_TRACK == "mR":
-            return mrecall
-        elif cfg.METRIC_TO_TRACK == "F":
-            return 2/(1/recall+1/mrecall)
-        else:
-            assert False, "validation metric not defined"
+        return result_dict
     elif "bbox" in iou_types:
-        return float(mAp)
+        return {'mAP': float(mAp)}
     else:
         return -1
 
@@ -345,7 +346,7 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
     evaluator['eval_zeroshot_recall'].calculate_recall(global_container, local_container, mode)
     # No Graph Constraint Zero-Shot Recall
     evaluator['eval_ng_zeroshot_recall'].calculate_recall(global_container, local_container, mode)
-    
+
     if informative:
         evaluator['eval_informative_recall'].calculate_recall(global_container, local_container, mode)
         

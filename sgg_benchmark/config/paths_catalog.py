@@ -61,10 +61,10 @@ class DatasetCatalog(object):
         },
         "VG_indoor_filtered": {
             "img_dir": IMG_DIR+"VG_100K",
-            "roidb_file": DATA_DIR+"datasets/IndoorVG/final/VG-SGG_augmented.h5",
-            "dict_file": DATA_DIR+"datasets/IndoorVG/final/VG-SGG-dicts-with-attri.json",
+            "roidb_file": DATA_DIR+"datasets/IndoorVG/VG-SGG.h5",
+            "dict_file": DATA_DIR+"datasets/IndoorVG/VG-SGG-dicts.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
-            "zeroshot_file": DATA_DIR+"datasets/IndoorVG/final/zero_shot_triplets.pytorch",
+            "zeroshot_file": DATA_DIR+"datasets/IndoorVG/zero_shot_triplets.pytorch",
         },
         "VG178": {
             "img_dir":  IMG_DIR+"VG_100K",
