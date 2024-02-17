@@ -11,8 +11,8 @@ class DatasetCatalog(object):
     elif os.path.exists("/home/maelic/Documents/PhD/Datasets/VisualGenome/"): # for local machine
         IMG_DIR = "/home/maelic/Documents/PhD/Datasets/VisualGenome/"
     #elif os.path.exists("/home/maelic/Documents/Datasets/VG"): # for local machine
-    DATA_DIR = "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/"
-    IMG_DIR = "/home/maelic/Documents/PhD/Datasets/VisualGenome/"
+    DATA_DIR = "/home/maelic/Scene-Graph-Benchmark-Cuda11.7/"
+    IMG_DIR = "/home/maelic/Documents/Datasets/VG/"
     DATASETS = {
         "VG_stanford_filtered": {
             "img_dir": IMG_DIR+"VG_100K",

@@ -258,7 +258,6 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
     pred_prop = [v / total_pred for k, v in stats_pred.items()] # this will replace cfg.MODEL.REL_PROP
     # pop first item
     pred_prop.pop(0)
-    print(pred_prop)
 
     # add background value
     stats_pred[0] = 3024465

@@ -40,8 +40,8 @@ class YOLOV8FeatureExtractor(nn.Module):
         self.resize_channels = input_size
         self.out_channels = out_dim
 
-    def forward(self, x, proposals, reduce=False):
-        x = self.pooler(x, proposals, reduce)
+    def forward(self, x, proposals):
+        x = self.pooler(x, proposals, True)
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc6(x))
         x = F.relu(self.fc7(x))

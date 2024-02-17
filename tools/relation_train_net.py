@@ -144,17 +144,19 @@ def train(cfg, logger, args):
                                        update_schedule=cfg.SOLVER.UPDATE_SCHEDULE_DURING_LOAD)
         arguments.update(extra_checkpoint_data)
     else:
-        # load_mapping is only used when we init current model from detection model.
-        checkpointer.load(None, with_optim=False, load_mapping=load_mapping)
-
-    # load backbone weights
-    logger_step(logger, 'Loading Backbone weights from '+cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
-    model.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
-    model.backbone.model.to(device)
+        if "FPN" in cfg.MODEL.BACKBONE.TYPE:
+            # load_mapping is only used when we init current model from detection model.
+            checkpointer.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT, with_optim=False, load_mapping=load_mapping)
+        else:
+            model.backbone.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
+            model.backbone.model.to(device)
+        # load backbone weights
+        logger_step(logger, 'Loading Backbone weights from '+cfg.MODEL.PRETRAINED_DETECTOR_CKPT)
+    
     mode = get_mode(cfg)
 
-    if mode == "predcls":
-        model.backbone.model.eval()
+    # if mode == "predcls":
+    #     model.backbone.model.eval()
 
     logger_step(logger, 'Building checkpointer')
 
@@ -333,7 +335,7 @@ def train(cfg, logger, args):
 def fix_eval_modules(eval_modules):
     for module in eval_modules:
         # module.model.eval()
-        for _, param in module.model.named_parameters():
+        for _, param in module.named_parameters():
             param.requires_grad = False
         # DO NOT use module.eval(), otherwise the module will be in the test mode, i.e., all self.training condition is set to False
 

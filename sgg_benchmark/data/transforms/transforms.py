@@ -117,6 +117,8 @@ class Resize(object):
         return (oh, ow)
 
     def __call__(self, image, target=None):
+        # convert from cv2 to PIL image
+        image = Image.fromarray(image)
         size = self.get_size(image.size)
         image = F.resize(image, size)
         if target is None:
@@ -134,7 +136,7 @@ class RandomHorizontalFlip(object):
         if random.random() < self.prob:
             if isinstance(image, np.ndarray): # from cv2
                 image = cv2.flip(image, 1)
-            elif isinstance(image, Image):
+            elif isinstance(image, Image.Image):
                 image = F.hflip(image)
             else:
                 raise ValueError("Unsupported image type {}".format(type(image)))
@@ -149,7 +151,7 @@ class RandomVerticalFlip(object):
         if random.random() < self.prob:
             if isinstance(image, np.ndarray): # from cv2
                 image = cv2.flip(image, 0)
-            elif isinstance(image, Image):
+            elif isinstance(image, Image.Image):
                 image = F.vflip(image)
             else:
                 raise ValueError("Unsupported image type {}".format(type(image)))
