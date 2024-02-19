@@ -48,7 +48,8 @@ class GeneralizedYOLO(nn.Module):
         outputs, features = self.backbone(images.tensors, embed=True)
 
         if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
-            proposals = targets
+            proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
+            targets = proposals
         else:
             proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
 
