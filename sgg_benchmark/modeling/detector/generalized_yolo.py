@@ -47,12 +47,26 @@ class GeneralizedYOLO(nn.Module):
         images = to_image_list(images)
         outputs, features = self.backbone(images.tensors, embed=True)
 
-        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
-            proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
-            targets = proposals
-        else:
-            proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
+        print(outputs.shape)
+        print(outputs[0].shape)
 
+        # if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
+        #     proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
+        #     targets = proposals
+        # else:
+        proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
+
+        # if not self.training and len(proposals[0].bbox) == 0:
+        #     # return empty BoxList if no proposal
+        #     fake_boxlist = BoxList(torch.empty((0, 4), dtype=torch.float32), images.image_sizes[0], mode="xyxy")
+        #     fake_boxlist.add_field("pred_scores", torch.empty(0))
+        #     fake_boxlist.add_field("pred_labels", torch.empty(0))
+        #     fake_boxlist.add_field("rel_pair_idxs", torch.empty((0,2)))
+        #     fake_boxlist.add_field("pred_rel_scores", torch.empty((0,2)))
+
+        #     fake_boxlist.add_field("labels", torch.empty(0))
+        #     return [fake_boxlist]
+        
         # proposals, proposal_losses = self.detect_heads(features)
         if self.roi_heads:
             x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, proposals)
@@ -69,4 +83,5 @@ class GeneralizedYOLO(nn.Module):
             #     # During the relationship training stage, the rpn_head should be fixed, and no loss. 
             #     losses.update(proposal_losses)
             return losses
+
         return result

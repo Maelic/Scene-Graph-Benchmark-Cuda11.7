@@ -116,11 +116,15 @@ class SGInformativeRecall(SceneGraphEvaluation):
 
         # cosine similarity between gt_triplets and pred_triplets
         for i in range(len(pred_triplets)):
+            if len(gt_triplets_embeddings) == 0:
+                break
             top_sim =  torch.topk(util.cos_sim(pred_triplets_embeddings[i], gt_triplets_embeddings)[0], k=1)
 
             # if the highest cosine similarity score is above a threshold, then consider the pred_triplet to be a match
             if top_sim[0] > threshold:
                 pred_to_gt[i].append(top_sim[1])
+                # remove the matched gt_triplet from the gt_triplets_embeddings matrix
+                gt_triplets_embeddings = np.delete(gt_triplets_embeddings, top_sim.indices[0], axis=0)
 
         return pred_to_gt
 
@@ -604,7 +608,20 @@ def _triplet(relations, classes, boxes, predicate_scores=None, class_scores=None
         triplets_scores (#rel, 3) : (sub_score, pred_score, ob_score)
     """
     sub_id, ob_id, pred_label = relations[:, 0], relations[:, 1], relations[:, 2]
-    triplets = np.column_stack((classes[sub_id], pred_label, classes[ob_id]))
+
+    try:
+        triplets = np.column_stack((classes[sub_id], pred_label, classes[ob_id]))
+    except:
+        print('sub_id:', sub_id)
+        print('ob_id:', ob_id)
+        print('classes:', classes)
+        print('relations:', relations)
+        print('classes[sub_id]:', classes[sub_id])
+        print('classes[ob_id]:', classes[ob_id])
+        print(classes.shape)
+        print(classes)
+        raise
+
     triplet_boxes = np.column_stack((boxes[sub_id], boxes[ob_id]))
 
     triplet_scores = None

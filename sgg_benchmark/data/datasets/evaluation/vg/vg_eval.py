@@ -292,9 +292,10 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
     evaluator['eval_ng_zeroshot_recall'].prepare_zeroshot(global_container, local_container)
 
     if mode == 'predcls':
-        local_container['pred_boxes'] = local_container['gt_boxes']
-        local_container['pred_classes'] = local_container['gt_classes']
-        local_container['obj_scores'] = np.ones(local_container['gt_classes'].shape[0])
+        pass
+        # local_container['pred_boxes'] = local_container['gt_boxes']
+        # local_container['pred_classes'] = local_container['gt_classes']
+        # local_container['obj_scores'] = np.ones(local_container['gt_classes'].shape[0])
 
     elif mode == 'sgcls':
         if local_container['gt_boxes'].shape[0] != local_container['pred_boxes'].shape[0]:
@@ -327,8 +328,14 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
         return None, None, None
     """
 
-    if local_container['pred_rel_inds'].shape[0] == 0:
-        return
+    # check if any of the local container is empty
+    for k,v in local_container.items():
+        if isinstance(v, np.ndarray) and v.size == 0:
+            return
+        if isinstance(v, list) and len(v) == 0:
+            return
+        if torch.is_tensor(v) and v.shape[0] == 0:
+            return
 
     # Traditional Metric with Graph Constraint
     # NOTE: this is the MAIN evaluation function, it must be run first (several important variables need to be update)

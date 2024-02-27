@@ -19,8 +19,6 @@ def run(rank, size):
     for r in mean_recall_k:
         dataset_result['mean_recall_k']['mean_recall_{}'.format(r)] = [random.random() for _ in range(10)]
     print(f"Rank {rank} dataset_result: {dataset_result}")
-
-    if type(dataset_result) == float:
         
     for k1, v1 in dataset_result.items():
         tensor_list = [torch.tensor(v, device='cuda') for v in v1.values()]

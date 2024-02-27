@@ -19,6 +19,7 @@ try:
 except ImportError:
     import logging
     logger = logging.getLogger(__name__)
+
 class VGDataset(torch.utils.data.Dataset):
 
     def __init__(self, split, img_dir, roidb_file, dict_file, image_file, zeroshot_file, informative_file=None, transforms=None,
@@ -211,7 +212,7 @@ class VGDataset(torch.utils.data.Dataset):
             target = target.clip_to_image(remove_empty=False)
             target.add_field("relation_tuple", torch.LongTensor(relation)) # for evaluation
             # if self.informative_graphs is not None:
-            target.add_field("informative_rels", self.informative_graphs[img_info['image_id']])
+            target.add_field("informative_rels", self.informative_graphs[str(img_info['image_id'])])
             return target
         else:
             target = target.clip_to_image(remove_empty=True)

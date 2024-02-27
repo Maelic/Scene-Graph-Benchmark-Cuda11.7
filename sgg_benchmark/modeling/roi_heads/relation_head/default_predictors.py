@@ -15,6 +15,36 @@ from .models.model_transformer import TransformerContext
 from .models.utils.utils_relation import layer_init, get_box_info, get_box_pair_info
 from sgg_benchmark.data import get_dataset_statistics
 
+class BasePredictor(nn.Module):
+    def __init__(self, config, in_channels):
+        super(BasePredictor, self).__init__()
+        self.num_obj_cls = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES
+        self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
+        self.use_bias = False
+
+        assert in_channels is not None
+
+        self.context_layer = None
+
+        # post decoding
+        self.hidden_dim = config.MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM
+        self.pooling_dim = config.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
+        
+        if self.pooling_dim != config.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM:
+            self.union_single_not_match = True
+            self.up_dim = nn.Linear(config.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM, self.pooling_dim)
+            layer_init(self.up_dim, xavier=True)
+        else:
+            self.union_single_not_match = False
+
+        # freq 
+        if self.use_bias:
+            statistics = get_dataset_statistics(config)
+            self.freq_bias = FrequencyBias(config, statistics)
+
+    def forward(self, proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger=None):
+        raise NotImplementedError
+    
 @registry.ROI_RELATION_PREDICTOR.register("TransformerPredictor")
 class TransformerPredictor(nn.Module):
     def __init__(self, config, in_channels):

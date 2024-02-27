@@ -7,6 +7,7 @@ from sgg_benchmark.data.transforms import LetterBox
 from ultralytics.cfg import get_cfg
 from ultralytics.nn.tasks import attempt_load_one_weight
 from ultralytics.utils import ops
+from ultralytics.engine.results import Results
 
 from sgg_benchmark.structures.bounding_box import BoxList
 
@@ -164,6 +165,19 @@ class YoloV8(DetectionModel):
 
         return batch
     
+    def visualize(self, preds, orig_imgs):
+        if not isinstance(orig_imgs, list):  # input images are a torch.Tensor, not a list
+            orig_imgs = ops.convert_torch2numpy_batch(orig_imgs)
+    
+        # get model input size
+        imgsz = (self.input_size, self.input_size)
+        results = []
+        for i, pred in enumerate(preds):
+            orig_img = orig_imgs[i]
+            pred[:, :4] = ops.scale_boxes(imgsz, pred[:, :4], orig_img.shape)
+            img_path = self.batch[0][i]
+            results.append(Results(orig_img, path=img_path, names=self.model.names, boxes=pred))
+    
     def postprocess(self, preds, img, targets):
         """Post-processes predictions and returns a list of Results objects."""
         preds = ops.non_max_suppression(
@@ -185,6 +199,9 @@ class YoloV8(DetectionModel):
             boxlist = boxlist.resize(image_size)
             boxlist.add_field("pred_scores", pred[:, 4])
             boxlist.add_field("labels", pred[:, 5])
+            boxlist.add_field("pred_labels", pred[:, 5])
+
+            assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
             # boxlist.add_field("pred_logits", pred[:, 5:])
 
             results.append(boxlist)
