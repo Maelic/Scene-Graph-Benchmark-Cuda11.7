@@ -18,6 +18,7 @@ class PostProcessor(nn.Module):
         self,
         attribute_on,
         use_gt_box=False,
+        proposals_as_gt=False,
         later_nms_pred_thres=0.3,
     ):
         """
@@ -27,6 +28,7 @@ class PostProcessor(nn.Module):
         super(PostProcessor, self).__init__()
         self.attribute_on = attribute_on
         self.use_gt_box = use_gt_box
+        self.proposals_as_gt = proposals_as_gt
         self.later_nms_pred_thres = later_nms_pred_thres
 
     def forward(self, x, rel_pair_idxs, boxes):
@@ -70,6 +72,9 @@ class PostProcessor(nn.Module):
             if self.use_gt_box:
                 obj_scores, obj_pred = obj_class_prob[:, 1:].max(dim=1)
                 obj_pred = obj_pred + 1
+            elif self.proposals_as_gt:
+                obj_scores = box.get_field('pred_scores')
+                obj_pred = box.get_field('pred_labels')
             else:
                 # NOTE: by kaihua, apply late nms for object prediction
                 obj_pred = obj_prediction_nms(box.get_field('boxes_per_cls'), obj_logit, self.later_nms_pred_thres)
@@ -79,7 +84,7 @@ class PostProcessor(nn.Module):
             assert obj_scores.shape[0] == num_obj_bbox
             obj_class = obj_pred
 
-            if self.use_gt_box:
+            if self.use_gt_box or self.proposals_as_gt:
                 boxlist = box
             else:
                 # mode==sgdet
@@ -122,11 +127,13 @@ class PostProcessor(nn.Module):
 def make_roi_relation_post_processor(cfg):
     attribute_on = cfg.MODEL.ATTRIBUTE_ON
     use_gt_box = cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX
+    proposals_as_gt = cfg.MODEL.BACKBONE.FREEZE
     later_nms_pred_thres = cfg.TEST.RELATION.LATER_NMS_PREDICTION_THRES
 
     postprocessor = PostProcessor(
         attribute_on,
         use_gt_box,
+        proposals_as_gt,
         later_nms_pred_thres,
     )
     return postprocessor

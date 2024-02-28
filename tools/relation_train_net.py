@@ -86,12 +86,12 @@ def train(cfg, logger, args):
 
     # modules that should be always set in eval mode
     # their eval() method should be called after model.train() is called
-    if cfg.MODEL.BOX_HEAD:
-        eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
-    else:
-        eval_modules = (model.backbone,)
+    # if cfg.MODEL.BOX_HEAD:
+    #     eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
+    # else:
+    #     eval_modules = (model.backbone,)
  
-    fix_eval_modules(eval_modules)
+    # fix_eval_modules(eval_modules)
 
     # NOTE, we slow down the LR of the layers start with the names in slow_heads
     if cfg.MODEL.ROI_RELATION_HEAD.PREDICTOR == "IMPPredictor":
@@ -155,9 +155,6 @@ def train(cfg, logger, args):
     
     mode = get_mode(cfg)
 
-    # if mode == "predcls":
-    #     model.backbone.model.eval()
-
     logger_step(logger, 'Building checkpointer')
 
     train_data_loader = make_data_loader(
@@ -176,6 +173,9 @@ def train(cfg, logger, args):
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD
 
     if cfg.SOLVER.PRE_VAL:
+        model.backbone.model.eval()
+        model.roi_heads.eval()
+
         logger.info("Validate before training")
         run_val(cfg, model, val_data_loaders, args['distributed'], logger, device=device)
 
@@ -206,9 +206,9 @@ def train(cfg, logger, args):
         targets = [target.to(device) for target in targets]
 
         # Note: If mixed precision is not used, this ends up doing nothing
-        # with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
-        loss_dict = model(images, targets)
-
+        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
+            loss_dict = model(images, targets)
+            
         losses = sum(loss for loss in loss_dict.values())
 
         # reduce losses over all GPUs for logging purposes
