@@ -199,11 +199,8 @@ def train(cfg, logger, args):
         iteration = iteration + 1
         arguments["iteration"] = iteration
 
-        # if mode == "predcls":
-        #     model.roi_heads.train()
-        # else:
-        model.train()
-        fix_eval_modules(eval_modules)        
+        model.roi_heads.train()
+        model.backbone.eval()
 
         images = images.to(device)
         targets = [target.to(device) for target in targets]

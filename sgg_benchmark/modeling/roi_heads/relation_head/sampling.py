@@ -55,7 +55,7 @@ class RelationSampling(object):
             device = proposal.bbox.device
             num_prp = proposal.bbox.shape[0]
 
-            assert proposal.bbox.shape[0] == target.bbox.shape[0]
+            assert proposal.bbox.shape[0] == target.bbox.shape[0], "Proposals shape: {} vs Targets shape: {}".format(proposal.bbox.shape[0], target.bbox.shape[0])
             tgt_rel_matrix = target.get_field("relation") # [tgt, tgt]
             tgt_pair_idxs = torch.nonzero(tgt_rel_matrix > 0)
             assert tgt_pair_idxs.shape[1] == 2

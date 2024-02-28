@@ -16,13 +16,13 @@ import numpy as np
 class YoloV8(DetectionModel):
     def __init__(self, cfg, ch=3, nc=None, verbose=True):  # model, input channels, number of classes
         yolo_cfg = cfg.MODEL.YOLO.SIZE+'.yaml'
-        self.nc = nc
         super().__init__(yolo_cfg, nc=nc, verbose=verbose)
         # self.features_layers = [len(self.model) - 2]
         self.conf_thres = cfg.MODEL.BACKBONE.NMS_THRESH
         self.iou_thres = cfg.MODEL.ROI_HEADS.NMS
         self.device = cfg.MODEL.DEVICE
         self.input_size = cfg.INPUT.MIN_SIZE_TRAIN
+        self.nc = nc
 
     def forward(self, x, profile=False, visualize=False, embed=None):
         y, feature_maps = [], []  # outputs
@@ -40,6 +40,7 @@ class YoloV8(DetectionModel):
             """
             if embed:
                 if i in {15, 18, 21}:  # if current layer is one of the feature extraction layers
+                    # feature_maps.append(nn.functional.adaptive_avg_pool2d(x, (1, 1)).squeeze(-1).squeeze(-1))
                     feature_maps.append(x)
         if embed:
             return x, feature_maps
@@ -60,8 +61,8 @@ class YoloV8(DetectionModel):
         if weights:
             super().load(weights)
 
-        args = get_cfg(overrides={'model': weights_path})
-        self.args = args  # attach hyperparameters to model
+        # args = get_cfg(overrides={'model': weights_path})
+        # self.args = args  # attach hyperparameters to model
 
         # self.overrides = self.model.args = self._reset_ckpt_args(self.model.args)
         # self.ckpt_path = self.model.pt_path
@@ -180,6 +181,16 @@ class YoloV8(DetectionModel):
     
     def postprocess(self, preds, img, targets):
         """Post-processes predictions and returns a list of Results objects."""
+
+        # check if preds is batched
+        # if preds.shape[0] >= 2:
+        #     # if batched, split into individual images
+        #     preds = [preds[i] for i in range(preds.shape[0])]
+
+        # non-maximum suppression
+            
+
+
         preds = ops.non_max_suppression(
             preds,
             nc=self.nc,
