@@ -49,12 +49,7 @@ class GeneralizedYOLO(nn.Module):
 
         # if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
         proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
-
-        print(len(proposals))
-
-        for prop in proposals:
-            print(len(prop))
-
+        
         #     targets = proposals
         # else:
         #     proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
