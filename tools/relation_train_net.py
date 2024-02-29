@@ -86,12 +86,12 @@ def train(cfg, logger, args):
 
     # modules that should be always set in eval mode
     # their eval() method should be called after model.train() is called
-    # if cfg.MODEL.BOX_HEAD:
-    #     eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
-    # else:
-    #     eval_modules = (model.backbone,)
- 
-    # fix_eval_modules(eval_modules)
+    if cfg.MODEL.META_ARCHITECTURE == "GeneralizedRCNN":
+        eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
+
+        fix_eval_modules(eval_modules)
+    else:
+        model.backbone.eval()
 
     # NOTE, we slow down the LR of the layers start with the names in slow_heads
     if cfg.MODEL.ROI_RELATION_HEAD.PREDICTOR == "IMPPredictor":
@@ -115,7 +115,7 @@ def train(cfg, logger, args):
     num_batch = cfg.SOLVER.IMS_PER_BATCH
     optimizer = make_optimizer(cfg, model, logger, slow_heads=slow_heads, slow_ratio=10.0, rl_factor=float(num_batch))
     scheduler = make_lr_scheduler(cfg, optimizer, logger)
-    logger_step(logger, 'Building optimizer and shcedule')
+    logger_step(logger, 'Building optimizer and scheduler...')
 
     # Initialize mixed-precision training
     use_amp = True if cfg.DTYPE == "float16" else False
@@ -138,12 +138,14 @@ def train(cfg, logger, args):
     checkpointer = DetectronCheckpointer(
         cfg, model, optimizer, scheduler, output_dir, save_to_disk, custom_scheduler=True
     )
+
     # if there is certain checkpoint in output_dir, load it, else load pretrained detector
     if checkpointer.has_checkpoint():
         extra_checkpoint_data = checkpointer.load(None, 
                                        update_schedule=cfg.SOLVER.UPDATE_SCHEDULE_DURING_LOAD)
         arguments.update(extra_checkpoint_data)
     else:
+        print("FPN" in cfg.MODEL.BACKBONE.TYPE)
         if "FPN" in cfg.MODEL.BACKBONE.TYPE:
             # load_mapping is only used when we init current model from detection model.
             checkpointer.load(cfg.MODEL.PRETRAINED_DETECTOR_CKPT, with_optim=False, load_mapping=load_mapping)
@@ -199,9 +201,9 @@ def train(cfg, logger, args):
         iteration = iteration + 1
         arguments["iteration"] = iteration
 
-        model.roi_heads.train()
-        model.backbone.eval()
-
+        model.train()
+        fix_eval_modules(eval_modules)
+        
         images = images.to(device)
         targets = [target.to(device) for target in targets]
 

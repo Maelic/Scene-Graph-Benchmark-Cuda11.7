@@ -122,6 +122,8 @@ class VGDataset(torch.utils.data.Dataset):
         if self.transforms is not None:
             img, target = self.transforms(img, target)
 
+        target.add_field("image_path", self.filenames[index])
+
         return img, target, index
 
 

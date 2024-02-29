@@ -11,7 +11,7 @@ MODEL:
   PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/datasets/IndoorVG/yolov8l_indoorvg.pt"
   BACKBONE:
     TYPE: "yolov8"
-    NMS_THRESH: 0.7
+    NMS_THRESH: 0.1
     FREEZE: True
   YOLO:
     SIZE: "yolov8l"
@@ -44,7 +44,7 @@ MODEL:
     BATCH_SIZE_PER_IMAGE: 256
     DETECTIONS_PER_IMG: 80
     NMS_FILTER_DUPLICATES: True
-    NMS: 0.5
+    NMS: 0.45
   ROI_BOX_HEAD:
     POOLER_RESOLUTION: 7
     POOLER_SCALES: (0.25, 0.125, 0.0625, 0.03125)

@@ -11,7 +11,7 @@ class DatasetCatalog(object):
     elif os.path.exists("/home/maelic/Documents/PhD/Datasets/VisualGenome/"): # for local machine
         IMG_DIR = "/home/maelic/Documents/PhD/Datasets/VisualGenome/"
     #elif os.path.exists("/home/maelic/Documents/Datasets/VG"): # for local machine
-    DATA_DIR = "/home/maelic/Scene-Graph-Benchmark-Cuda11.7/"
+    DATA_DIR = "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/"
     IMG_DIR = "/home/maelic/Documents/Datasets/VG/"
     DATASETS = {
         "VG_stanford_filtered": {
@@ -65,6 +65,7 @@ class DatasetCatalog(object):
             "dict_file": DATA_DIR+"datasets/IndoorVG/VG-SGG-dicts.json",
             "image_file": DATA_DIR+"datasets/vg/image_data.json",
             "zeroshot_file": DATA_DIR+"datasets/IndoorVG/zero_shot_triplets.pytorch",
+            "informative_file": DATA_DIR+"datasets/informative_sg.json",
         },
         "VG178": {
             "img_dir":  IMG_DIR+"VG_100K",

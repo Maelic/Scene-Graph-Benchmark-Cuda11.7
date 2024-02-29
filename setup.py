@@ -59,9 +59,8 @@ def get_extensions():
 
 setup(
     name="sgg_benchmark",
-    version="0.2",
-    author="fmassa",
-    url="https://github.com/facebookresearch/maskrcnn-benchmark",
+    version="0.3",
+    author="maelicneau",
     description="Scene Graph Generation in pytorch",
     packages=find_packages(exclude=("configs", "tests",)),
     # install_requires=requirements,

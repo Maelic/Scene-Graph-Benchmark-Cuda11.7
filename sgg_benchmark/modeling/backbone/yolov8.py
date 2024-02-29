@@ -11,7 +11,8 @@ from ultralytics.engine.results import Results
 
 from sgg_benchmark.structures.bounding_box import BoxList
 
-import numpy as np    
+import numpy as np
+import cv2
 
 class YoloV8(DetectionModel):
     def __init__(self, cfg, ch=3, nc=None, verbose=True):  # model, input channels, number of classes
@@ -179,17 +180,8 @@ class YoloV8(DetectionModel):
             img_path = self.batch[0][i]
             results.append(Results(orig_img, path=img_path, names=self.model.names, boxes=pred))
     
-    def postprocess(self, preds, img, targets):
+    def postprocess(self, preds, img, targets,visualize=True):
         """Post-processes predictions and returns a list of Results objects."""
-
-        # check if preds is batched
-        # if preds.shape[0] >= 2:
-        #     # if batched, split into individual images
-        #     preds = [preds[i] for i in range(preds.shape[0])]
-
-        # non-maximum suppression
-            
-
 
         preds = ops.non_max_suppression(
             preds,
@@ -203,14 +195,29 @@ class YoloV8(DetectionModel):
         for i, pred in enumerate(preds):
             # orig_img = orig_imgs[i]
             # pred[:, :4] = ops.scale_boxes(img.shape[2:], pred[:, :4], orig_img)
-            # results.append(Results(orig_img, path="", names=self.model.names, boxes=pred))
+
+            orig_img_path = targets[i].get_field("image_path")
             image_size = targets[i].size
+            print(image_size)
+            print(img[i])
             boxlist = BoxList(pred[:, :4], (img[i][1], img[i][0]), mode="xyxy")
             # resize
             boxlist = boxlist.resize(image_size)
             boxlist.add_field("pred_scores", pred[:, 4])
             boxlist.add_field("labels", pred[:, 5])
             boxlist.add_field("pred_labels", pred[:, 5])
+
+            # show boxes on image
+            if visualize:
+                img = cv2.imread(orig_img_path)
+
+                for box, label in zip(boxlist.bbox, boxlist.get_field("pred_labels")):
+                    # round + to list
+                    bbox = list(map(int, box))
+                    img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+                    img = cv2.putText(img, str(int(label)), (bbox[0], bbox[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2, cv2.LINE_AA)
+                # save img to path
+                cv2.imwrite("/home/maelic/Documents/poubelle/tests"+orig_img_path.split('/')[-1], img)
 
             assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
             # boxlist.add_field("pred_logits", pred[:, 5:])

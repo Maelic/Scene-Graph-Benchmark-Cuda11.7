@@ -4,8 +4,9 @@ from sgg_benchmark.modeling import registry
 from torch.nn import functional as F
 import time
 
-from .default_predictors import *
-from .GCL_predictors import *
+from .predictors.default_predictors import *
+from .predictors.GCL_predictors import *
+from .predictors.bayesian_predictors import *
 
 def make_roi_relation_predictor_GCL(cfg, in_channels):
     result_str = '---'*20
