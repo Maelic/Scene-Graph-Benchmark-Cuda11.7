@@ -44,6 +44,11 @@ class BoxList(object):
         if is_triplet:
             self.triplet_extra_fields.append(field)
 
+    def remove_field(self, field):
+        del self.extra_fields[field]
+        if field in self.triplet_extra_fields:
+            self.triplet_extra_fields.remove(field)
+
     def get_field(self, field):
         return self.extra_fields[field]
 

@@ -27,6 +27,7 @@ class GeneralizedYOLO(nn.Module):
         self.cfg = cfg.clone()
         self.backbone = build_backbone(cfg)
         self.roi_heads = build_roi_heads(cfg, self.backbone.out_channels)
+        self.predcls = self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL
 
     def forward(self, images, targets=None, logger=None):
         """
@@ -47,12 +48,9 @@ class GeneralizedYOLO(nn.Module):
         images = to_image_list(images)
         with torch.no_grad():
             outputs, features = self.backbone(images.tensors, embed=True)
+        
             proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
         
-        #     targets = proposals
-        # else:
-        #     proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
-
         # if not self.training and len(proposals[0].bbox) == 0:
         #     # return empty BoxList if no proposal
         #     fake_boxlist = BoxList(torch.empty((0, 4), dtype=torch.float32), images.image_sizes[0], mode="xyxy")
@@ -64,9 +62,13 @@ class GeneralizedYOLO(nn.Module):
         #     fake_boxlist.add_field("labels", torch.empty(0))
         #     return [fake_boxlist]
         
-        # proposals, proposal_losses = self.detect_heads(features)
         if self.roi_heads:
-            x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, proposals)
+            if self.predcls: # in predcls mode, we pass the targets as proposals
+                for t in targets:
+                    t.remove_field("image_path")
+                x, result, detector_losses = self.roi_heads(features, targets, targets, logger, targets)
+            else:
+                x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, proposals)
         else:
             # RPN-only models don't have roi_heads
             x = features
