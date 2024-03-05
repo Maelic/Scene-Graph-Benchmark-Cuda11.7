@@ -77,9 +77,7 @@ class VGDataset(torch.utils.data.Dataset):
             self.img_info = [self.img_info[i] for i in np.where(self.split_mask)[0]]
 
             if informative_file is not None:
-                print("Loading informative gt scene graphs from {}".format(informative_file))
                 self.informative_graphs = json.load(open(informative_file, 'r'))
-                print(len(self.informative_graphs), len(self.img_info))
             else:
                 self.informative_graphs = {img['image_id']: [] for img in self.img_info}
 

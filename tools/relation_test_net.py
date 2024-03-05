@@ -67,6 +67,10 @@ def main():
     use_amp = True if cfg.DTYPE == "float16" or args.amp else False
 
     checkpointer = DetectronCheckpointer(cfg, model, save_dir=output_dir)
+    last_check = checkpointer.get_checkpoint_file()
+    logger.info("Loading best checkpoint from {}...".format(last_check))
+    _ = checkpointer.load(last_check)
+    run_test(cfg, model, args.distributed, logger)
     _ = checkpointer.load(cfg.MODEL.WEIGHT)
 
     iou_types = ("bbox",)

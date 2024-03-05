@@ -78,13 +78,13 @@ class SGInformativeRecall(SceneGraphEvaluation):
             self.sim_model = SentenceTransformer('all-MiniLM-L6-v2')
 
     def register_container(self, mode):
-        self.result_dict[mode + '_informativeness_recall'] = {20: [], 50: [], 100: []}
+        self.result_dict[mode + '_informative_recall'] = {5: [], 10: [], 20: [], 50: [], 100: []}
 
     def generate_print_string(self, mode):
         result_str = 'SGG eval: '
-        for k, v in self.result_dict[mode + '_informativeness_recall'].items():
+        for k, v in self.result_dict[mode + '_informative_recall'].items():
             result_str += '    IR @ %d: %.4f; ' % (k, np.mean(v))
-        result_str += ' for mode=%s, type=Informativeness Recall.' % mode
+        result_str += ' for mode=%s, type=Informative Recall.' % mode
         result_str += '\n'
         return result_str
     
@@ -136,8 +136,7 @@ class SGInformativeRecall(SceneGraphEvaluation):
         pred_rels = np.column_stack((pred_rel_inds, 1+rel_scores[:,1:].argmax(1)))
         pred_scores = rel_scores[:,1:].max(1)
 
-        pred_triplets, pred_triplet_boxes, pred_triplet_scores = _triplet(
-                pred_rels, pred_classes, pred_boxes, pred_scores, obj_scores)
+        pred_triplets, pred_triplet_boxes, pred_triplet_scores = _triplet(pred_rels, pred_classes, pred_boxes, pred_scores, obj_scores)
         
         full_name_triplets = [str(global_container['ind_to_classes'][triplet[0]] +' ' +global_container['ind_to_predicates'][triplet[1]] +' '+global_container['ind_to_classes'][triplet[2]]) for triplet in pred_triplets]
         
@@ -145,14 +144,13 @@ class SGInformativeRecall(SceneGraphEvaluation):
 
         local_container['pred_to_gt_inf'] = pred_to_gt
 
-        for k in self.result_dict[mode + '_recall']:
-            # the following code are copied from Neural-MOTIFS
+        for k in self.result_dict[mode + '_informative_recall']:
             match = reduce(np.union1d, pred_to_gt[:k])
-            if len(gt_relationships) > 0:
+            if len(gt_relationships) > 0 and len(match) > 0:
                 rec_i = float(len(match)) / float(len(gt_relationships))
             else:
                 rec_i = 0.0
-            self.result_dict[mode + '_recall'][k].append(rec_i)
+            self.result_dict[mode + '_informative_recall'][k].append(rec_i)
 
         return local_container
 

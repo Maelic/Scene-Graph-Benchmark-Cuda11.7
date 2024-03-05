@@ -328,6 +328,8 @@ def train(cfg, logger, args):
     )
 
     name = "model_{:07d}".format(best_epoch)
+    if args['save_best']:
+        name = "best_model_{:07d}".format(best_epoch)
     last_filename = os.path.join(cfg.OUTPUT_DIR, "{}.pth".format(name))
     output_folder = os.path.join(cfg.OUTPUT_DIR, "last_checkpoint")
     with open(output_folder, "w") as f:
@@ -370,6 +372,7 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
                             expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
                             output_folder=None,
                             logger=logger,
+                            informative=cfg.TEST.INFORMATIVE,
                         )
         synchronize()
 
@@ -423,6 +426,7 @@ def run_test(cfg, model, distributed, logger):
             expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
             output_folder=output_folder,
             logger=logger,
+            informative=cfg.TEST.INFORMATIVE,
         )
         synchronize()
 
@@ -503,15 +507,15 @@ def main():
     )
 
     if not args.skip_test:
-        if best_checkpoint is not None:
-            logger.info("Loading best checkpoint from {}...".format(best_checkpoint))
-            checkpointer = DetectronCheckpointer(cfg, model)
-            _ = checkpointer.load(best_checkpoint)
-            logger_step(logger, "Starting test with best checkpoint...")
-            run_test(cfg, model, args.distributed, logger)
+        checkpointer = DetectronCheckpointer(cfg, model)
+        last_check = checkpointer.get_checkpoint_file()
+        if last_check != "":
+            logger.info("Loading best checkpoint from {}...".format(last_check))
+            _ = checkpointer.load(last_check)
         else:
-            logger_step(logger, "Starting test with last checkpoint...")
-            run_test(cfg, model, args.distributed, logger)
+            _ = checkpointer.load(last_check)
+        run_test(cfg, model, args.distributed, logger)
+
     
     logger.info("#"*20+" END TRAINING "+"#"*20)
 

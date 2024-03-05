@@ -59,8 +59,10 @@ def do_vg_evaluation(
         gt = dataset.get_groundtruth(image_id, evaluation=True)
         groundtruths.append(gt)
 
-    #save_output(output_folder, groundtruths, predictions, dataset)
-    
+    if informative and not 'informative_rels' in groundtruths[0].extra_fields.keys():
+        logger.info('Dataset does not have informative_rels, skipping informative evaluation for dataset: %s' % dataset_name)
+        informative = False
+
     result_str = '\n' + '=' * 100 + '\n'
     if "bbox" in iou_types:
         # create a Coco-like object that we can use to evaluate detection!
@@ -292,10 +294,9 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
     evaluator['eval_ng_zeroshot_recall'].prepare_zeroshot(global_container, local_container)
 
     if mode == 'predcls':
-        pass
-        # local_container['pred_boxes'] = local_container['gt_boxes']
-        # local_container['pred_classes'] = local_container['gt_classes']
-        # local_container['obj_scores'] = np.ones(local_container['gt_classes'].shape[0])
+        local_container['pred_boxes'] = local_container['gt_boxes']
+        local_container['pred_classes'] = local_container['gt_classes']
+        local_container['obj_scores'] = np.ones(local_container['gt_classes'].shape[0])
 
     elif mode == 'sgcls':
         if local_container['gt_boxes'].shape[0] != local_container['pred_boxes'].shape[0]:
