@@ -38,9 +38,7 @@ def build_transforms(cfg, is_train=True):
         transform = T.Compose(
             [
                 color_jitter,
-                T.RandomHorizontalFlip(flip_horizontal_prob),
-                T.RandomVerticalFlip(flip_vertical_prob),
-                T.LetterBox(new_shape=(min_size, max_size), auto=True),
+                T.Resize(min_size, max_size),
                 T.ToTensorYOLO(),
             ]
         )

@@ -318,7 +318,7 @@ class LSTMContext(nn.Module):
             self.untreated_dcd_feat = self.moving_average(self.untreated_dcd_feat, decoder_inp)
         
         # Decode in order
-        if self.mode != 'predcls':
+        if obj_labels is None and self.mode != 'predcls':
             decoder_inp = PackedSequence(decoder_inp, ls_transposed)
             obj_dists, obj_preds = self.decoder_rnn(
                 decoder_inp, #obj_dists[perm],
@@ -328,7 +328,6 @@ class LSTMContext(nn.Module):
             obj_preds = obj_preds[inv_perm]
             obj_dists = obj_dists[inv_perm]
         else:
-            assert obj_labels is not None
             obj_preds = obj_labels
             obj_dists = to_onehot(obj_preds, self.num_obj_classes)
         encoder_rep = encoder_rep[inv_perm]
@@ -377,7 +376,7 @@ class LSTMContext(nn.Module):
             obj_pre_rep = cat((x, obj_embed, pos_embed), -1)
 
         boxes_per_cls = None
-        if self.mode == 'sgdet' and not self.training:
+        if obj_labels is None and not self.training:
             boxes_per_cls = cat([proposal.get_field('boxes_per_cls') for proposal in proposals], dim=0) # comes from post process of box_head
 
         # object level contextual feature

@@ -41,7 +41,6 @@ class SGF1Score(SceneGraphEvaluation):
 
     def generate_print_string(self, mode):
         result_str = 'SGG eval: '
-        print(self.result_dict[mode + '_f1'])
         for k in self.result_dict[mode + '_f1']:
             result_str += '    F1 @ %d: %.4f; ' % (k, self.result_dict[mode + '_f1'][k])
         result_str += ' for mode=%s, type=F1.' % mode
@@ -52,15 +51,12 @@ class SGF1Score(SceneGraphEvaluation):
         for k in global_container[mode + '_recall']:
             recall_k = np.mean(global_container[mode + '_recall'][k])
             mean_reacall_k = np.mean(global_container[mode + '_mean_recall'][k])
-            print('recall_k:', recall_k)
-            print('mean_reacall_k:', mean_reacall_k)
 
             if recall_k + mean_reacall_k > 0:
                 f1 = 2 * recall_k * mean_reacall_k / (recall_k + mean_reacall_k)
             else:
                 f1 = 0
             self.result_dict[mode + '_f1'][k] = f1
-            print('f1:', f1)
 
 class SGInformativeRecall(SceneGraphEvaluation):
     def __init__(self, result_dict, sim='glove'):

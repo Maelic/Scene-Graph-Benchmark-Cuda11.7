@@ -13,6 +13,8 @@ from sgg_benchmark.structures.bounding_box import BoxList
 
 import numpy as np
 import cv2
+from PIL import Image
+
 
 class YoloV8(DetectionModel):
     def __init__(self, cfg, ch=3, nc=None, verbose=True):  # model, input channels, number of classes
@@ -180,8 +182,10 @@ class YoloV8(DetectionModel):
             img_path = self.batch[0][i]
             results.append(Results(orig_img, path=img_path, names=self.model.names, boxes=pred))
     
-    def postprocess(self, preds, img, targets,visualize=True):
+    def postprocess(self, preds, img_sizes, targets, visualize=False):
         """Post-processes predictions and returns a list of Results objects."""
+        idx_to_label = {1: "bag", 2: "bar", 3: "basket", 4: "bathtub", 5: "bed", 6: "blanket", 7: "blind", 8: "board", 9: "book", 10: "bookshelf", 11: "bottle", 12: "bowl", 13: "box", 14: "brick", 15: "button", 16: "cabinet", 17: "can", 18: "candle", 19: "carpet", 20: "cat", 21: "ceiling", 22: "chair", 23: "child", 24: "clock", 25: "computer", 26: "container", 27: "cord", 28: "couch", 29: "counter", 30: "cup", 31: "curtain", 32: "cushion", 33: "design", 34: "desk", 35: "dog", 36: "door", 37: "drawer", 38: "fan", 39: "faucet", 40: "floor", 41: "flower", 42: "food", 43: "frame", 44: "glass", 45: "hand", 46: "handle", 47: "head", 48: "headboard", 49: "holder", 50: "jacket", 51: "jar", 52: "key", 53: "keyboard", 54: "knob", 55: "lamp", 56: "laptop", 57: "leaf", 58: "leg", 59: "lid", 60: "light", 61: "luggage", 62: "magazine", 63: "microwave", 64: "mirror", 65: "monitor", 66: "mouse", 67: "mug", 68: "outlet", 69: "oven", 70: "painting", 71: "paper", 72: "pen", 73: "person", 74: "phone", 75: "pillow", 76: "plant", 77: "plate", 78: "poster", 79: "pot", 80: "rack", 81: "refrigerator", 82: "remote", 83: "rug", 84: "scissors", 85: "screen", 86: "seat", 87: "sheet", 88: "shelf", 89: "shirt", 90: "shoe", 91: "shower", 92: "sink", 93: "speaker", 94: "stand", 95: "stove", 96: "suitcase", 97: "table", 98: "teddy bear", 99: "television", 100: "tile", 101: "toilet", 102: "toilet paper", 103: "toothbrush", 104: "towel", 105: "toy", 106: "urinal", 107: "vase", 108: "vent", 109: "wall", 110: "window"}
+        idx_to_label = {k-1: v for k, v in idx_to_label.items()}
 
         preds = ops.non_max_suppression(
             preds,
@@ -193,37 +197,46 @@ class YoloV8(DetectionModel):
 
         results = []
         for i, pred in enumerate(preds):
-            # orig_img = orig_imgs[i]
-            # pred[:, :4] = ops.scale_boxes(img.shape[2:], pred[:, :4], orig_img)
+            out_img_size = targets[i].size
 
-            orig_img_path = targets[i].get_field("image_path")
-            image_size = targets[i].size
-            print(image_size)
-            print(img[i])
-            boxlist = BoxList(pred[:, :4], (img[i][1], img[i][0]), mode="xyxy")
+            boxes = pred[:, :4]
+
+            boxlist = BoxList(boxes, out_img_size, mode="xyxy")
+            scores = pred[:, 4]
+            labels = pred[:, 5]
             # resize
-            boxlist = boxlist.resize(image_size)
-            boxlist.add_field("pred_scores", pred[:, 4])
-            boxlist.add_field("labels", pred[:, 5])
-            boxlist.add_field("pred_labels", pred[:, 5])
+            boxlist.add_field("pred_scores", scores)
+            boxlist.add_field("labels", labels)
+            boxlist.add_field("pred_labels", labels)
 
             # show boxes on image
             if visualize:
-                img = cv2.imread(orig_img_path)
+                orig_img_path = targets[i].get_field("image_path")
+                #boxes = ops.scale_boxes(img_sizes[i], pred[:, :4], (out_img_size[1], out_img_size[0]))
 
-                for box, label in zip(boxlist.bbox, boxlist.get_field("pred_labels")):
-                    # round + to list
-                    bbox = list(map(int, box))
-                    img = cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
-                    img = cv2.putText(img, str(int(label)), (bbox[0], bbox[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2, cv2.LINE_AA)
-                # save img to path
-                cv2.imwrite("/home/maelic/Documents/poubelle/tests"+orig_img_path.split('/')[-1], img)
+                orig_img = cv2.imread(orig_img_path)
+                image_width, image_height = orig_img.shape[1], orig_img.shape[0]
+                boxlist = boxlist.resize((image_width, image_height))
+                boxes = boxlist.bbox
+
+                # concat score and label to boxes
+                scores = scores.unsqueeze(1)
+                labels = labels.unsqueeze(1)
+                boxes = torch.cat((boxes, scores, labels), 1)
+
+                res = Results(orig_img, path=orig_img_path, names=idx_to_label, boxes=boxes)
+
+                im_array = res.plot()  # plot results
+
+                im = Image.fromarray(im_array[..., ::-1])  # RGB PIL image
+                # write down to file
+                im.save("/home/maelic/Documents/poubelle/ultr_"+orig_img_path.split('/')[-1])
 
             assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
             # boxlist.add_field("pred_logits", pred[:, 5:])
 
             results.append(boxlist)
-
+        del(preds)
         return results
 
     

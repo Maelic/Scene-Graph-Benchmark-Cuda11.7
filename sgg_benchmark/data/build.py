@@ -52,7 +52,9 @@ def get_dataset_statistics(cfg):
         args = data["args"]
         dataset = factory(**args)
         statistics.append(dataset.get_statistics())
-    logger.info('finish')
+    # dict with statistics[0]['rel_classes'] as keys and statistics[0]['pred_prop'] as values
+    pred_dict = dict(zip(statistics[0]['rel_classes'][1:], statistics[0]['pred_prop']))
+    logger.info('Predicate proportion: ' + str(pred_dict))
 
     assert len(statistics) == 1
     result = {

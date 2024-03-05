@@ -45,10 +45,9 @@ class GeneralizedYOLO(nn.Module):
             raise ValueError("In training mode, targets should be passed")
         
         images = to_image_list(images)
-        outputs, features = self.backbone(images.tensors, embed=True)
-
-        # if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
-        proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
+        with torch.no_grad():
+            outputs, features = self.backbone(images.tensors, embed=True)
+            proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
         
         #     targets = proposals
         # else:
@@ -74,7 +73,7 @@ class GeneralizedYOLO(nn.Module):
             result = proposals
             detector_losses = {}
 
-        if self.training:
+        if self.roi_heads.training:
             losses = {}
             losses.update(detector_losses)
             # if not self.cfg.MODEL.RELATION_ON:

@@ -88,7 +88,6 @@ def train(cfg, logger, args):
     # their eval() method should be called after model.train() is called
     if cfg.MODEL.META_ARCHITECTURE == "GeneralizedRCNN":
         eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
-
         fix_eval_modules(eval_modules)
     else:
         model.backbone.eval()
@@ -201,8 +200,13 @@ def train(cfg, logger, args):
         iteration = iteration + 1
         arguments["iteration"] = iteration
 
-        model.train()
-        fix_eval_modules(eval_modules)
+        if cfg.MODEL.META_ARCHITECTURE == "GeneralizedRCNN":
+            model.train()
+            eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
+            fix_eval_modules(eval_modules)
+        else:
+            model.train()
+            model.backbone.eval()
         
         images = images.to(device)
         targets = [target.to(device) for target in targets]
@@ -211,7 +215,7 @@ def train(cfg, logger, args):
         with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=use_amp):
             loss_dict = model(images, targets)
             
-        losses = sum(loss for loss in loss_dict.values())
+            losses = sum(loss for loss in loss_dict.values())
 
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = reduce_loss_dict(loss_dict)
@@ -227,13 +231,15 @@ def train(cfg, logger, args):
         scaler.scale(losses).backward()
         
         # Unscale the gradients of optimizer's assigned params in-place before cliping
-        # from https://pytorch.org/docs/stable/notes/amp_examples.html
         scaler.unscale_(optimizer)
 
-        # add clip_grad_norm from MOTIFS, tracking gradient, used for debug
-        verbose = (iteration % cfg.SOLVER.PRINT_GRAD_FREQ) == 0 or print_first_grad # print grad or not
-        print_first_grad = False
-        clip_grad_norm([(n, p) for n, p in model.named_parameters() if p.requires_grad], max_norm=cfg.SOLVER.GRAD_NORM_CLIP, logger=logger, verbose=verbose, clip=True)
+        # # add clip_grad_norm from MOTIFS, tracking gradient, used for debug
+        # verbose = (iteration % cfg.SOLVER.PRINT_GRAD_FREQ) == 0 or print_first_grad # print grad or not
+        # print_first_grad = False
+        # clip_grad_norm([(n, p) for n, p in model.named_parameters() if p.requires_grad], max_norm=cfg.SOLVER.GRAD_NORM_CLIP, logger=logger, verbose=verbose, clip=True)
+
+        # fallback to native clipping, if no clip_grad_norm is used
+        torch.nn.utils.clip_grad_norm_([p for _, p in model.named_parameters() if p.requires_grad], max_norm=cfg.SOLVER.GRAD_NORM_CLIP)
 
         scaler.step(optimizer)
         scaler.update()
