@@ -66,7 +66,7 @@ class GeneralizedYOLO(nn.Module):
             if self.predcls: # in predcls mode, we pass the targets as proposals
                 for t in targets:
                     t.remove_field("image_path")
-                x, result, detector_losses = self.roi_heads(features, targets, targets, logger, targets)
+                x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, targets)
             else:
                 x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, proposals)
         else:

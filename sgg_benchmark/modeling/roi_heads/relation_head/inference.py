@@ -65,26 +65,27 @@ class PostProcessor(nn.Module):
                 att_logit = finetune_att_logits[i]
                 att_prob = torch.sigmoid(att_logit)
 
-            if self.proposals_as_gt:
+            obj_class_prob = F.softmax(obj_logit, -1)
+            obj_class_prob[:, 0] = 0  # set background score to 0
+            num_obj_bbox = obj_class_prob.shape[0]
+            num_obj_class = obj_class_prob.shape[1]
+
+            if self.use_gt_box:
+                obj_scores, obj_pred = obj_class_prob[:, 1:].max(dim=1)
+                obj_pred = obj_pred + 1
+
+            elif self.proposals_as_gt:
                 obj_scores = box.get_field('pred_scores')
                 obj_pred = box.get_field('pred_labels')
                 obj_pred = obj_pred + 1
-            else:
-                obj_class_prob = F.softmax(obj_logit, -1)
-                obj_class_prob[:, 0] = 0  # set background score to 0
-                num_obj_bbox = obj_class_prob.shape[0]
-                num_obj_class = obj_class_prob.shape[1]
 
-                if self.use_gt_box:
-                    obj_scores, obj_pred = obj_class_prob[:, 1:].max(dim=1)
-                    obj_pred = obj_pred + 1
-                else:
-                    # NOTE: by kaihua, apply late nms for object prediction
-                    obj_pred = obj_prediction_nms(box.get_field('boxes_per_cls'), obj_logit, self.later_nms_pred_thres)
-                    obj_score_ind = torch.arange(num_obj_bbox, device=obj_logit.device) * num_obj_class + obj_pred
-                    obj_scores = obj_class_prob.view(-1)[obj_score_ind]
+            if not self.proposals_as_gt and not self.use_gt_box:
+                # NOTE: by kaihua, apply late nms for object prediction
+                obj_pred = obj_prediction_nms(box.get_field('boxes_per_cls'), obj_logit, self.later_nms_pred_thres)
+                obj_score_ind = torch.arange(num_obj_bbox, device=obj_logit.device) * num_obj_class + obj_pred
+                obj_scores = obj_class_prob.view(-1)[obj_score_ind]
             
-                assert obj_scores.shape[0] == num_obj_bbox
+            assert obj_scores.shape[0] == num_obj_bbox
             obj_class = obj_pred
 
             if self.use_gt_box or self.proposals_as_gt:
