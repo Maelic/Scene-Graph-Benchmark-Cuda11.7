@@ -88,7 +88,7 @@ class SGInformativeRecall(SceneGraphEvaluation):
         result_str += '\n'
         return result_str
     
-    def similarity_match(self, gt_triplets, pred_triplets, threshold=0.8):
+    def similarity_match(self, gt_triplets, pred_triplets, cosine_thres=0.8):
         """
         Perform cosine similarity between gt_triplets list of strings and pred_triplets list of strings
         For each pred_triplet, find the gt_triplet with the highest cosine similarity score
@@ -117,7 +117,7 @@ class SGInformativeRecall(SceneGraphEvaluation):
             top_sim =  torch.topk(util.cos_sim(pred_triplets_embeddings[i], gt_triplets_embeddings)[0], k=1)
 
             # if the highest cosine similarity score is above a threshold, then consider the pred_triplet to be a match
-            if top_sim[0] > threshold:
+            if top_sim[0] > cosine_thres:
                 pred_to_gt[i].append(top_sim[1])
                 # remove the matched gt_triplet from the gt_triplets_embeddings matrix
                 gt_triplets_embeddings = np.delete(gt_triplets_embeddings, top_sim.indices[0], axis=0)
@@ -137,20 +137,40 @@ class SGInformativeRecall(SceneGraphEvaluation):
         pred_scores = rel_scores[:,1:].max(1)
 
         pred_triplets, pred_triplet_boxes, pred_triplet_scores = _triplet(pred_rels, pred_classes, pred_boxes, pred_scores, obj_scores)
-        
+
         full_name_triplets = [str(global_container['ind_to_classes'][triplet[0]] +' ' +global_container['ind_to_predicates'][triplet[1]] +' '+global_container['ind_to_classes'][triplet[2]]) for triplet in pred_triplets]
         
-        pred_to_gt = self.similarity_match(gt_relationships, full_name_triplets)
+        pred_to_gt = self.similarity_match(gt_relationships, full_name_triplets, cosine_thres=0.8)
+
+        # if mode == "sgdet":
+        #     # reduce pred_triplets to predictions that matches the grountruth gt
+        #     # first, reduce over the boxes using bbox_overlaps
+        #     keep = bbox_overlaps(gt_boxes, pred_boxes).max(0) > iou_thres
+        #     # keep is a m x n matrix, m is the number of gt_boxes, n is the number of pred_boxes
+        #     # second, reduce over the classes
+        #     keep = keep & (pred_classes[:, None] == gt_classes[None]).any(1)
+        #     pred_boxes = pred_boxes[keep]
+        #     pred_classes = pred_classes[keep]
+        #     obj_scores = obj_scores[keep]
+        #     # third, reduce over the relations, remove all rels where either sub or obj is not in the filtered boxes
+        #     keep = (pred_rels[:, 0] < len(pred_boxes)) & (pred_rels[:, 1] < len(pred_boxes))
+        #     pred_rel_inds = pred_rel_inds[keep]
+        #     pred_scores = pred_scores[keep]
+        #     pred_rels = pred_rels[keep]
 
         local_container['pred_to_gt_inf'] = pred_to_gt
 
         for k in self.result_dict[mode + '_informative_recall']:
-            match = reduce(np.union1d, pred_to_gt[:k])
-            if len(gt_relationships) > 0 and len(match) > 0:
-                rec_i = float(len(match)) / float(len(gt_relationships))
-            else:
+            # check if pred_to_gt_inf is empty
+            if all(len(x) == 0 for x in pred_to_gt):
                 rec_i = 0.0
-            self.result_dict[mode + '_informative_recall'][k].append(rec_i)
+            else:
+                match = reduce(np.union1d, pred_to_gt[:k])
+                if len(gt_relationships) > 0 and len(match) > 0:
+                    rec_i = float(len(match)) / float(len(gt_relationships))
+                else:
+                    rec_i = 0.0
+                self.result_dict[mode + '_informative_recall'][k].append(rec_i)
 
         return local_container
 

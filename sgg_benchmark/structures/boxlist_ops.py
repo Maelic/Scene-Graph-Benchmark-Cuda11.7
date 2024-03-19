@@ -106,7 +106,7 @@ def boxlist_union(boxlist1, boxlist2):
       box2: (BoxList) bounding boxes, sized [N,4].
 
     Returns:
-      (tensor) union, sized [N,4].
+      (BoxList) union, sized [N,4].
     """
     assert len(boxlist1) == len(boxlist2) and boxlist1.size == boxlist2.size
     boxlist1 = boxlist1.convert("xyxy")

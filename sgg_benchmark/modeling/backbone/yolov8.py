@@ -43,7 +43,6 @@ class YoloV8(DetectionModel):
             """
             if embed:
                 if i in {15, 18, 21}:  # if current layer is one of the feature extraction layers
-                    # feature_maps.append(nn.functional.adaptive_avg_pool2d(x, (1, 1)).squeeze(-1).squeeze(-1))
                     feature_maps.append(x)
         if embed:
             return x, feature_maps
@@ -63,15 +62,6 @@ class YoloV8(DetectionModel):
 
         if weights:
             super().load(weights)
-
-        # args = get_cfg(overrides={'model': weights_path})
-        # self.args = args  # attach hyperparameters to model
-
-        # self.overrides = self.model.args = self._reset_ckpt_args(self.model.args)
-        # self.ckpt_path = self.model.pt_path
-
-        # self.overrides["model"] = weights
-        # self.overrides["task"] = self.task
 
     def prepare_input(self, image, input_shape=(640,640), stride=32, auto=True):
         not_tensor = not isinstance(image, torch.Tensor)
@@ -112,44 +102,6 @@ class YoloV8(DetectionModel):
             if m.i == max(self.features_layers):
                 return torch.unbind(torch.cat(embeddings, 1), dim=0)
         return x
-
-    # def custom_forward(self, x):
-    #     """
-    #     This is a modified version of the original _forward_once() method in BaseModel,
-    #     found in ultralytics/nn/tasks.py.
-    #     The original method returns only the detection output, while this method returns
-    #     both the detection output and the features extracted by the last convolutional layer.
-    #     """
-    #     y = []
-    #     features = None
-    #     if torch.is_tensor(x):
-    #         x =  self.preprocess(x)
-    #         for m in self.model:
-    #             if m.f != -1:  # if not from previous layer
-    #                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
-    #             if torch.is_tensor(x):
-    #                 features = x # keep the last tensor as features
-    #             x = m(x)  # run
-    #             if torch.is_tensor(x):
-    #                 features = x # keep the last tensor as features
-    #             y.append(x if m.i in self.save else None)  # save output
-    #         if torch.is_tensor(x):
-    #             features = x # keep the last tensor as features
-    #         return features, x # return features and detection output
-    #     else:
-    #         x = self.preprocess(x)['img']
-    #         for m in self.model:
-    #             if m.f != -1:  # if not from previous layer
-    #                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
-    #             if torch.is_tensor(x):
-    #                 features = x # keep the last tensor as features
-    #             x = m(x)  # run
-    #             if torch.is_tensor(x):
-    #                 features = x # keep the last tensor as features
-    #             y.append(x if m.i in self.save else None)  # save output
-    #         if torch.is_tensor(x):
-    #             features = x # keep the last tensor as features
-    #         return features, x # return features and detection output
     
     def preprocess(self, batch):
         """Preprocesses batch of images for YOLO training."""
@@ -182,10 +134,8 @@ class YoloV8(DetectionModel):
             img_path = self.batch[0][i]
             results.append(Results(orig_img, path=img_path, names=self.model.names, boxes=pred))
     
-    def postprocess(self, preds, img_sizes, targets, visualize=False):
+    def postprocess(self, preds, targets):
         """Post-processes predictions and returns a list of Results objects."""
-        idx_to_label = {1: "bag", 2: "bar", 3: "basket", 4: "bathtub", 5: "bed", 6: "blanket", 7: "blind", 8: "board", 9: "book", 10: "bookshelf", 11: "bottle", 12: "bowl", 13: "box", 14: "brick", 15: "button", 16: "cabinet", 17: "can", 18: "candle", 19: "carpet", 20: "cat", 21: "ceiling", 22: "chair", 23: "child", 24: "clock", 25: "computer", 26: "container", 27: "cord", 28: "couch", 29: "counter", 30: "cup", 31: "curtain", 32: "cushion", 33: "design", 34: "desk", 35: "dog", 36: "door", 37: "drawer", 38: "fan", 39: "faucet", 40: "floor", 41: "flower", 42: "food", 43: "frame", 44: "glass", 45: "hand", 46: "handle", 47: "head", 48: "headboard", 49: "holder", 50: "jacket", 51: "jar", 52: "key", 53: "keyboard", 54: "knob", 55: "lamp", 56: "laptop", 57: "leaf", 58: "leg", 59: "lid", 60: "light", 61: "luggage", 62: "magazine", 63: "microwave", 64: "mirror", 65: "monitor", 66: "mouse", 67: "mug", 68: "outlet", 69: "oven", 70: "painting", 71: "paper", 72: "pen", 73: "person", 74: "phone", 75: "pillow", 76: "plant", 77: "plate", 78: "poster", 79: "pot", 80: "rack", 81: "refrigerator", 82: "remote", 83: "rug", 84: "scissors", 85: "screen", 86: "seat", 87: "sheet", 88: "shelf", 89: "shirt", 90: "shoe", 91: "shower", 92: "sink", 93: "speaker", 94: "stand", 95: "stove", 96: "suitcase", 97: "table", 98: "teddy bear", 99: "television", 100: "tile", 101: "toilet", 102: "toilet paper", 103: "toothbrush", 104: "towel", 105: "toy", 106: "urinal", 107: "vase", 108: "vent", 109: "wall", 110: "window"}
-        idx_to_label = {k-1: v for k, v in idx_to_label.items()}
 
         preds = ops.non_max_suppression(
             preds,
@@ -202,41 +152,18 @@ class YoloV8(DetectionModel):
             boxes = pred[:, :4]
 
             boxlist = BoxList(boxes, out_img_size, mode="xyxy")
-            scores = pred[:, 4]
-            labels = pred[:, 5]
+            boxlist = boxlist.clip_to_image(remove_empty=False)
+            scores = pred[:, 4].long()
+            labels = pred[:, 5].long()
             # resize
             boxlist.add_field("pred_scores", scores)
             boxlist.add_field("labels", labels)
             boxlist.add_field("pred_labels", labels)
 
-            # show boxes on image
-            if visualize:
-                orig_img_path = targets[i].get_field("image_path")
-                #boxes = ops.scale_boxes(img_sizes[i], pred[:, :4], (out_img_size[1], out_img_size[0]))
-
-                orig_img = cv2.imread(orig_img_path)
-                image_width, image_height = orig_img.shape[1], orig_img.shape[0]
-                boxlist = boxlist.resize((image_width, image_height))
-                boxes = boxlist.bbox
-
-                # concat score and label to boxes
-                scores = scores.unsqueeze(1)
-                labels = labels.unsqueeze(1)
-                boxes = torch.cat((boxes, scores, labels), 1)
-
-                res = Results(orig_img, path=orig_img_path, names=idx_to_label, boxes=boxes)
-
-                im_array = res.plot()  # plot results
-
-                im = Image.fromarray(im_array[..., ::-1])  # RGB PIL image
-                # write down to file
-                im.save("/home/maelic/Documents/poubelle/ultr_"+orig_img_path.split('/')[-1])
-
             assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
             # boxlist.add_field("pred_logits", pred[:, 5:])
 
             results.append(boxlist)
-        del(preds)
         return results
 
     
@@ -245,21 +172,3 @@ class YoloV8(DetectionModel):
         """Reset arguments when loading a PyTorch model."""
         include = {"imgsz", "data", "task", "single_cls"}  # only remember these arguments when loading a PyTorch model
         return {k: v for k, v in args.items() if k in include}
-    
-
-def create_yolov8_model(model_name_or_path, nc, class_names):
-    from ultralytics.nn.tasks import attempt_load_one_weight
-    ckpt = None
-    if str(model_name_or_path).endswith('.pt'):
-        weights, ckpt = attempt_load_one_weight(model_name_or_path)
-        cfg = ckpt['model'].yaml
-    else:
-        cfg = model_name_or_path
-    model = YoloV8(cfg, nc=nc, verbose=True)
-    if weights:
-        model.load(weights)
-    model.nc = nc
-    model.names = class_names  # attach class names to model
-    model.out_channels = 3
-
-    return model

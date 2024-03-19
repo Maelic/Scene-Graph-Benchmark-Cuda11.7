@@ -152,6 +152,7 @@ class RelationSampling(object):
         tgt_rel_labs = tgt_rel_matrix[tgt_head_idxs, tgt_tail_idxs].contiguous().view(-1)
 
         num_tgt_rels = tgt_rel_labs.shape[0]
+
         # generate binary prp mask
         num_prp = is_match.shape[-1]
         binary_prp_head = is_match[tgt_head_idxs] # num_tgt_rel, num_prp (matched prp head)
@@ -159,6 +160,7 @@ class RelationSampling(object):
         binary_rel = torch.zeros((num_prp, num_prp), device=device).long()
 
         fg_rel_triplets = []
+        print("num tgt rels", num_tgt_rels)
         for i in range(num_tgt_rels):
             # generate binary prp mask
             bi_match_head = torch.nonzero(binary_prp_head[i] > 0)
@@ -181,12 +183,17 @@ class RelationSampling(object):
             prp_tail_idxs = torch.nonzero(is_match[tgt_tail_idx]).squeeze(1)
             num_match_head = prp_head_idxs.shape[0]
             num_match_tail = prp_tail_idxs.shape[0]
+            print("num_match_tail", num_match_tail)
+            print("num_match_head", num_match_head)
+
             if num_match_head <= 0 or num_match_tail <= 0:
                 continue
             # all combination pairs
             prp_head_idxs = prp_head_idxs.view(-1,1).expand(num_match_head,num_match_tail).contiguous().view(-1)
             prp_tail_idxs = prp_tail_idxs.view(1,-1).expand(num_match_head,num_match_tail).contiguous().view(-1)
             valid_pair = prp_head_idxs != prp_tail_idxs
+            print("valid_pair ", valid_pair.shape)
+
             if valid_pair.sum().item() <= 0:
                 continue
             # remove self-pair
@@ -231,6 +238,7 @@ class RelationSampling(object):
         # if both fg and bg is none
         if fg_rel_triplets.shape[0] == 0 and bg_rel_triplets.shape[0] == 0:
             bg_rel_triplets = torch.zeros((1, 3), dtype=torch.int64, device=device)
+        
         return cat((fg_rel_triplets, bg_rel_triplets), dim=0), binary_rel
 
 

@@ -48,7 +48,7 @@ class RelationFeatureExtractor(nn.Module):
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(in_channels, momentum=0.01),
             ])
-        
+
 
     def forward(self, x, proposals, rel_pair_idxs=None):
         device = x[0].device

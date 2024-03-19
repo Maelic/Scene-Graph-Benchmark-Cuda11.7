@@ -196,10 +196,9 @@ class TransformerContext(nn.Module):
         super().__init__()
         self.cfg = config
         # setting parameters
-        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
-            self.mode = 'predcls' if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL else 'sgcls'
-        else:
-            self.mode = 'sgdet'
+        self.obj_pred = True
+        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE:
+            self.obj_pred = False
         self.obj_classes = obj_classes
         self.rel_classes = rel_classes
         self.num_obj_cls = len(obj_classes)
@@ -243,15 +242,16 @@ class TransformerContext(nn.Module):
     
     def forward(self, roi_features, proposals, logger=None):
         # labels will be used in DecoderRNN during training
-        use_gt_label = self.training or self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL or self.cfg.MODEL.BACKBONE.FREEZE
+        use_gt_label = self.training or not self.obj_pred
         obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0) if use_gt_label else None
 
+        print(proposals[0].fields())
+        print(proposals[0].get_field("labels"))
+        print(proposals[0].get_field("pred_scores").shape)
+        print(proposals[0].get_field("pred_labels"))
+
         # label/logits embedding will be used as input
-        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
-            obj_embed = self.obj_embed1(obj_labels)
-        elif self.cfg.MODEL.BACKBONE.FREEZE:
-            # to int
-            obj_labels = obj_labels.long()
+        if not self.obj_pred:
             obj_embed = self.obj_embed1(obj_labels)
         else:
             obj_logits = cat([proposal.get_field("predict_logits") for proposal in proposals], dim=0).detach()
@@ -268,7 +268,7 @@ class TransformerContext(nn.Module):
         obj_feats = self.context_obj(obj_pre_rep, num_objs)
 
         # predict obj_dists and obj_preds
-        if self.mode == 'predcls' or self.cfg.MODEL.BACKBONE.FREEZE:
+        if not self.obj_pred:
             obj_preds = obj_labels
             obj_dists = to_onehot(obj_preds, self.num_obj_cls)
             edge_pre_rep = cat((roi_features, obj_feats, self.obj_embed2(obj_labels)), dim=-1)

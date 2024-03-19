@@ -8,6 +8,7 @@ from torch import nn
 
 from sgg_benchmark.structures.image_list import to_image_list
 from sgg_benchmark.structures.bounding_box import BoxList
+from sgg_benchmark.modeling.backbone import add_gt_proposals
 
 from ..backbone import build_backbone
 from ..roi_heads.roi_heads import build_roi_heads
@@ -42,28 +43,19 @@ class GeneralizedYOLO(nn.Module):
                 like `scores`, `labels` and `mask` (for Mask R-CNN models).
 
         """
-        if self.training and targets is None:
+        if self.roi_heads.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
         
         images = to_image_list(images)
         with torch.no_grad():
             outputs, features = self.backbone(images.tensors, embed=True)
+            proposals = self.backbone.postprocess(outputs, targets)
         
-            proposals = self.backbone.postprocess(outputs, images.image_sizes, targets)
-        
-        # if not self.training and len(proposals[0].bbox) == 0:
-        #     # return empty BoxList if no proposal
-        #     fake_boxlist = BoxList(torch.empty((0, 4), dtype=torch.float32), images.image_sizes[0], mode="xyxy")
-        #     fake_boxlist.add_field("pred_scores", torch.empty(0))
-        #     fake_boxlist.add_field("pred_labels", torch.empty(0))
-        #     fake_boxlist.add_field("rel_pair_idxs", torch.empty((0,2)))
-        #     fake_boxlist.add_field("pred_rel_scores", torch.empty((0,2)))
+        # if self.roi_heads.training and not self.predcls:
+        #     proposals = add_gt_proposals(proposals, targets)
 
-        #     fake_boxlist.add_field("labels", torch.empty(0))
-        #     return [fake_boxlist]
-        
         if self.roi_heads:
-            if self.predcls: # in predcls mode, we pass the targets as proposals
+            if self.predcls and self.roi_heads.training: # in predcls mode, we pass the targets as proposals
                 for t in targets:
                     t.remove_field("image_path")
                 x, result, detector_losses = self.roi_heads(features, proposals, targets, logger, targets)
@@ -78,9 +70,6 @@ class GeneralizedYOLO(nn.Module):
         if self.roi_heads.training:
             losses = {}
             losses.update(detector_losses)
-            # if not self.cfg.MODEL.RELATION_ON:
-            #     # During the relationship training stage, the rpn_head should be fixed, and no loss. 
-            #     losses.update(proposal_losses)
             return losses
 
         return result

@@ -133,43 +133,16 @@ class Pooler(nn.Module):
         if self.cat_all_levels:
             result = self.reduce_channel(result)
         return result
-
-class LevelMapperYOLO(object):
-    """Determine which FPN level each RoI in a set of RoIs should map to based
-    on the heuristic in the FPN paper.
-    """
-
-    def __init__(self):
-        self.map_scales = [20,40,80] # ideally this should be passed as an arg somewhere
-
-    def __call__(self, boxlists):
-        """
-        Assign each ROI to a feature map based on its area.
-        Args:
-            boxlists (list[BoxList])
-        Returns:
-            target_lvls (Tensor[N]): A tensor of the same length as rois, where each element is the target level of the corresponding ROI.
-        """
-        # Calculate the area of each ROI
-        areas = torch.cat([boxlist.area() for boxlist in boxlists])
-
-        # Assign each ROI to a feature map
-        target_lvls = torch.zeros_like(areas)
-        target_lvls[areas < self.map_scales[1]*self.map_scales[1]] = 0.0
-        target_lvls[(areas >= self.map_scales[1]*self.map_scales[1]) & (areas < self.map_scales[2]*self.map_scales[2])] = 1.0
-        target_lvls[areas >= self.map_scales[2]*self.map_scales[2]] = 2.0
-
-        return target_lvls
     
 class PoolerYOLO(nn.Module):
-    def __init__(self, output_size, sampling_ratio, in_channels=256, cat_all_levels=False):
+    def __init__(self, output_size, sampling_ratio, in_channels=[], cat_all_levels=False):
         super(PoolerYOLO, self).__init__()
         self.output_size = output_size
         self.sampling_ratio = sampling_ratio
         self.cat_all_levels = cat_all_levels
-        self.in_channels = [256,512,512]
+        self.in_channels = in_channels if in_channels != [] else [256,512,512]
         self.out_channels = 256
-        self.num_features = 3
+        self.num_features = 3                   # features map size for YOLOV8 is 3, with size 20x20x256, 40x40x512, 80x80x512
 
         self.reduce_channel = make_conv3x3(self.out_channels * self.num_features, self.out_channels, dilation=1, stride=1, use_relu=True)
 
@@ -194,7 +167,7 @@ class PoolerYOLO(nn.Module):
 
         if num_levels == 1:
             return poolers[0](x[0], rois)
-
+        
         map_levels = LevelMapperYOLO()
         levels = map_levels(boxes)
 
@@ -208,7 +181,6 @@ class PoolerYOLO(nn.Module):
             device=device,
         )
         for level, (per_level_feature, pooler) in enumerate(zip(x, poolers)):
-
             if self.cat_all_levels:
                 result[:,level*self.out_channels:(level+1)*self.out_channels,:,:] = pooler(per_level_feature, rois).to(dtype)
             else:
@@ -220,7 +192,7 @@ class PoolerYOLO(nn.Module):
             result = self.reduce_channel(result)
 
         return result
-
+    
     def convert_to_roi_format(self, boxes):
         concat_boxes = cat([b.bbox for b in boxes], dim=0)
         device, dtype = concat_boxes.device, concat_boxes.dtype
@@ -233,6 +205,33 @@ class PoolerYOLO(nn.Module):
         )
         rois = torch.cat([ids, concat_boxes], dim=1)
         return rois
+
+class LevelMapperYOLO(object):
+    """Determine which level each RoI in a set of RoIs should map to based
+    on a specific heuristic.
+    """
+
+    def __init__(self):
+        self.map_scales = [20,40,80] # ideally this should be passed as an arg somewhere
+
+    def __call__(self, boxlists):
+        """
+        Assign each ROI to a feature map based on its area, to follow the YOLOV8 architecture with 3 different scales.
+        Args:
+            boxlists (list[BoxList])
+        Returns:
+            target_lvls (Tensor[N]): A tensor of the same length as rois, where each element is the target level of the corresponding ROI.
+        """
+        # Calculate the area of each ROI
+        areas = torch.cat([boxlist.area() for boxlist in boxlists])
+
+        # Assign each ROI to a feature map
+        target_lvls = torch.zeros_like(areas)
+        target_lvls[areas < self.map_scales[1]*self.map_scales[1]] = 0.0
+        target_lvls[(areas >= self.map_scales[1]*self.map_scales[1]) & (areas < self.map_scales[2]*self.map_scales[2])] = 1.0
+        target_lvls[areas >= self.map_scales[2]*self.map_scales[2]] = 2.0
+
+        return target_lvls
 
 def make_pooler(cfg, head_name):
     resolution = cfg.MODEL[head_name].POOLER_RESOLUTION

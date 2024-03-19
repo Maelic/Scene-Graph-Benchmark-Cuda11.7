@@ -19,7 +19,6 @@ class YOLOV8FeatureExtractor(nn.Module):
         pooler = PoolerYOLO(
             output_size=(resolution, resolution),
             sampling_ratio=sampling_ratio,
-            in_channels=in_channels,
             cat_all_levels=cat_all_levels,
         )
 

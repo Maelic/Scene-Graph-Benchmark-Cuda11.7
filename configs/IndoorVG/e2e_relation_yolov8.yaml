@@ -39,7 +39,8 @@ MODEL:
     RPN_MID_CHANNEL: 256
   ROI_HEADS:
     POSITIVE_FRACTION: 0.5
-    BG_IOU_THRESHOLD: 0.3
+    FG_IOU_THRESHOLD: 0.3
+    BG_IOU_THRESHOLD: 0.1
     BATCH_SIZE_PER_IMAGE: 256
     DETECTIONS_PER_IMG: 80
     NMS_FILTER_DUPLICATES: True
@@ -66,7 +67,7 @@ MODEL:
     USE_GT_BOX: True
     USE_GT_OBJECT_LABEL: True
     REQUIRE_BOX_OVERLAP: True              # for sgdet, during training, only train pairs with overlap
-    ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: True    # for sgdet only, in case some gt boxes are missing
+    ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: False    # for sgdet only, in case some gt boxes are missing
     NUM_CLASSES: 38                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
     BATCH_SIZE_PER_IMAGE: 1024      # sample as much as possible
     POSITIVE_FRACTION: 0.25
@@ -109,7 +110,7 @@ DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
   BIAS_LR_FACTOR: 1
-  BASE_LR: 0.02
+  BASE_LR: 0.01
   WARMUP_FACTOR: 0.1
   WEIGHT_DECAY: 0.0001
   MOMENTUM: 0.9
@@ -130,9 +131,10 @@ SOLVER:
 OUTPUT_DIR: './output/relation_baseline'
 TEST:
   ALLOW_LOAD_FROM_CACHE: False
+  INFORMATIVE: True
   RELATION:
     SYNC_GATHER: True      # turn on will slow down the evaluation to solve the sgdet test out of memory problem
-    REQUIRE_OVERLAP: False
+    REQUIRE_OVERLAP: True
     LATER_NMS_PREDICTION_THRES: 0.5
   CUSTUM_EVAL: False       # eval SGDet model on custum images, output a json
   CUSTUM_PATH: '.'         # the folder that contains the custum images, only jpg files are allowed  

@@ -81,8 +81,8 @@ def train(cfg, logger, args):
         import wandb
         run_name = cfg.OUTPUT_DIR.split('/')[-1]
         if args['distributed']:
-            wandb.init(project="scene-graph-benchmark", entity="maelic", group="DDP", name=run_name, config=cfg)
-        wandb.init(project="scene-graph-benchmark", entity="maelic", name=run_name, config=cfg)
+            wandb.init(project="sgg-indoorvg-3", entity="maelic", group="DDP", name=run_name, config=cfg)
+        wandb.init(project="sgg-indoorvg-3", entity="maelic", name=run_name, config=cfg)
 
     # modules that should be always set in eval mode
     # their eval() method should be called after model.train() is called
@@ -205,7 +205,7 @@ def train(cfg, logger, args):
             eval_modules = (model.rpn, model.backbone, model.roi_heads.box,)
             fix_eval_modules(eval_modules)
         else:
-            model.train()
+            model.roi_heads.train()
             model.backbone.eval()
         
         images = images.to(device)
@@ -293,7 +293,7 @@ def train(cfg, logger, args):
             if current_metric > best_metric:
                 best_epoch = iteration
                 best_metric = current_metric
-                if args['save_best']:
+                if args['save_best'] and iteration % checkpoint_period == 0:
                     to_remove = best_checkpoint
                     checkpointer.save("best_model_{:07d}".format(iteration), **arguments)
                     best_checkpoint = os.path.join(cfg.OUTPUT_DIR, "best_model_{:07d}".format(iteration))
@@ -311,7 +311,7 @@ def train(cfg, logger, args):
         # scheduler should be called after optimizer.step() in pytorch>=1.1.0
         # https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
         if cfg.SOLVER.SCHEDULE.TYPE == "WarmupReduceLROnPlateau":
-            # Using mean recall instead of traditionnal recall for scheduler
+            # Using current_metric instead of traditionnal recall for scheduler
             scheduler.step(current_metric, epoch=iteration)
             if scheduler.stage_count >= cfg.SOLVER.SCHEDULE.MAX_DECAY_STEP:
                 logger.info("Trigger MAX_DECAY_STEP at iteration {}.".format(iteration))

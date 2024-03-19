@@ -70,8 +70,6 @@ def main():
     last_check = checkpointer.get_checkpoint_file()
     logger.info("Loading best checkpoint from {}...".format(last_check))
     _ = checkpointer.load(last_check)
-    run_test(cfg, model, args.distributed, logger)
-    _ = checkpointer.load(cfg.MODEL.WEIGHT)
 
     iou_types = ("bbox",)
     if cfg.MODEL.RELATION_ON:

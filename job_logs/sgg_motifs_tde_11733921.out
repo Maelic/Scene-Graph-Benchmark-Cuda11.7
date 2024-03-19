@@ -1,3 +1,0 @@
-[32m2023-12-14 11:29:00.749[0m | [1mINFO    [0m | [36msgg_benchmark.utils.logger[0m:[36msetup_logger[0m:[36m30[0m - [1mUsing loguru logger with level: INFO[0m
-[32m2023-12-14 11:29:00.769[0m | [1mINFO    [0m | [36m__main__[0m:[36mmain[0m:[36m416[0m - [1mUsing 2 GPUs[0m
-[32m2023-12-14 11:29:00.769[0m | [1mINFO    [0m | [36m__main__[0m:[36mmain[0m:[36m419[0m - [1mCollecting environment info...[0m

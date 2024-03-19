@@ -78,8 +78,7 @@ class PostProcessor(nn.Module):
                 obj_scores = box.get_field('pred_scores')
                 obj_pred = box.get_field('pred_labels')
                 obj_pred = obj_pred + 1
-
-            if not self.proposals_as_gt and not self.use_gt_box:
+            else:
                 # NOTE: by kaihua, apply late nms for object prediction
                 obj_pred = obj_prediction_nms(box.get_field('boxes_per_cls'), obj_logit, self.later_nms_pred_thres)
                 obj_score_ind = torch.arange(num_obj_bbox, device=obj_logit.device) * num_obj_class + obj_pred

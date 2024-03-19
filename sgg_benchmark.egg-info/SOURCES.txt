@@ -89,6 +89,7 @@ sgg_benchmark/modeling/backbone/fbnet_builder.py
 sgg_benchmark/modeling/backbone/fbnet_modeldef.py
 sgg_benchmark/modeling/backbone/fpn.py
 sgg_benchmark/modeling/backbone/resnet.py
+sgg_benchmark/modeling/backbone/utils.py
 sgg_benchmark/modeling/backbone/vgg.py
 sgg_benchmark/modeling/backbone/yolov8.py
 sgg_benchmark/modeling/detector/__init__.py
