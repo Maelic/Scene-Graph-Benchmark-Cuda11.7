@@ -9,7 +9,7 @@ from sgg_benchmark.modeling.utils import cat
 from ..models.model_msg_passing import IMPContext
 from ..models.model_vtranse import VTransEFeature
 from ..models.model_vctree import VCTreeLSTMContext
-from ..models.model_motifs import LSTMContext, FrequencyBias
+from ..models.model_motifs import LSTMContext, LSTMContext_RNN, FrequencyBias # LSTMContext_RNN correspond to original motifs, LSTMContext is without the object detection part (decoder RNN)
 from ..models.model_motifs_with_attribute import AttributeLSTMContext
 from ..models.model_transformer import TransformerContext
 from ..models.utils.utils_relation import layer_init, get_box_info, get_box_pair_info
@@ -56,7 +56,6 @@ class TransformerPredictor(nn.Module):
         self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
         
         assert in_channels is not None
-        num_inputs = in_channels
         self.use_vision = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
         self.use_bias = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_BIAS
 
@@ -237,7 +236,6 @@ class MotifPredictor(nn.Module):
         self.num_rel_cls = config.MODEL.ROI_RELATION_HEAD.NUM_CLASSES
         
         assert in_channels is not None
-        num_inputs = in_channels
         self.use_vision = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_VISION
         self.use_bias = config.MODEL.ROI_RELATION_HEAD.PREDICT_USE_BIAS
 
@@ -249,9 +247,13 @@ class MotifPredictor(nn.Module):
         assert self.num_rel_cls==len(rel_classes)
         # init contextual lstm encoding
         if self.attribute_on:
+            att_classes = statistics['att_classes']
             self.context_layer = AttributeLSTMContext(config, obj_classes, att_classes, rel_classes, in_channels)
         else:
-            self.context_layer = LSTMContext(config, obj_classes, rel_classes, in_channels)
+            if self.cfg.MODEL.BACKBONE.FREEZE:
+                self.context_layer = LSTMContext(config, obj_classes, rel_classes, in_channels)
+            else:
+                self.context_layer = LSTMContext_RNN(config, obj_classes, rel_classes, in_channels)
 
         # post decoding
         self.hidden_dim = config.MODEL.ROI_RELATION_HEAD.CONTEXT_HIDDEN_DIM
@@ -289,7 +291,11 @@ class MotifPredictor(nn.Module):
         if self.attribute_on:
             obj_dists, obj_preds, att_dists, edge_ctx = self.context_layer(roi_features, proposals, logger)
         else:
-            obj_dists, obj_preds, edge_ctx, _ = self.context_layer(roi_features, proposals, logger)
+            if self.cfg.MODEL.BACKBONE.FREEZE:
+                obj_preds, edge_ctx = self.context_layer(roi_features, proposals, logger)
+            else:
+                obj_dists, obj_preds, edge_ctx, _ = self.context_layer(roi_features, proposals, logger)
+                obj_dists = obj_dists.split(num_objs, dim=0)
 
         # post decode
         edge_rep = self.post_emb(edge_ctx)
@@ -326,7 +332,6 @@ class MotifPredictor(nn.Module):
         if self.use_bias:
             rel_dists = rel_dists + self.freq_bias.index_with_labels(pair_pred.long())
 
-        obj_dists = obj_dists.split(num_objs, dim=0)
         rel_dists = rel_dists.split(num_rels, dim=0)
 
         # we use obj_preds instead of pred from obj_dists
@@ -337,7 +342,10 @@ class MotifPredictor(nn.Module):
             att_dists = att_dists.split(num_objs, dim=0)
             return (obj_dists, att_dists), rel_dists, add_losses
         else:
-            return obj_dists, rel_dists, add_losses
+            if self.cfg.MODEL.BACKBONE.FREEZE:
+                return rel_dists, add_losses
+            else:
+                return obj_dists, rel_dists, add_losses
 
 
 @registry.ROI_RELATION_PREDICTOR.register("VCTreePredictor")

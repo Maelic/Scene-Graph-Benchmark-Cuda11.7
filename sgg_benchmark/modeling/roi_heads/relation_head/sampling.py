@@ -112,7 +112,6 @@ class RelationSampling(object):
             device = proposal.bbox.device
             prp_box = proposal.bbox
             prp_lab = proposal.get_field("labels").long()
-            tgt_box = target.bbox
             tgt_lab = target.get_field("labels").long()
             tgt_rel_matrix = target.get_field("relation") # [tgt, tgt]
             # IoU matching
@@ -160,7 +159,6 @@ class RelationSampling(object):
         binary_rel = torch.zeros((num_prp, num_prp), device=device).long()
 
         fg_rel_triplets = []
-        print("num tgt rels", num_tgt_rels)
         for i in range(num_tgt_rels):
             # generate binary prp mask
             bi_match_head = torch.nonzero(binary_prp_head[i] > 0)
@@ -183,8 +181,6 @@ class RelationSampling(object):
             prp_tail_idxs = torch.nonzero(is_match[tgt_tail_idx]).squeeze(1)
             num_match_head = prp_head_idxs.shape[0]
             num_match_tail = prp_tail_idxs.shape[0]
-            print("num_match_tail", num_match_tail)
-            print("num_match_head", num_match_head)
 
             if num_match_head <= 0 or num_match_tail <= 0:
                 continue
@@ -192,7 +188,6 @@ class RelationSampling(object):
             prp_head_idxs = prp_head_idxs.view(-1,1).expand(num_match_head,num_match_tail).contiguous().view(-1)
             prp_tail_idxs = prp_tail_idxs.view(1,-1).expand(num_match_head,num_match_tail).contiguous().view(-1)
             valid_pair = prp_head_idxs != prp_tail_idxs
-            print("valid_pair ", valid_pair.shape)
 
             if valid_pair.sum().item() <= 0:
                 continue

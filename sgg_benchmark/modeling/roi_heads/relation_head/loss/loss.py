@@ -46,7 +46,7 @@ class RelationLossComputation(object):
             self.criterion_loss = nn.CrossEntropyLoss()
 
 
-    def __call__(self, proposals, rel_labels, relation_logits, refine_logits):
+    def __call__(self, proposals, rel_labels, relation_logits, refine_logits=None):
         """
         Computes the loss for relation triplet.
         This requires that the subsample method has been called beforehand.
@@ -70,13 +70,15 @@ class RelationLossComputation(object):
             refine_obj_logits = refine_logits
 
         relation_logits = cat(relation_logits, dim=0)
-        refine_obj_logits = cat(refine_obj_logits, dim=0)
 
         fg_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
         rel_labels = cat(rel_labels, dim=0)
 
         loss_relation = self.criterion_loss(relation_logits, rel_labels.long())
-        loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
+
+        if refine_obj_logits is not None:
+            refine_obj_logits = cat(refine_obj_logits, dim=0)
+            loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
 
         # The following code is used to calculate sampled attribute loss
         if self.attri_on:
@@ -95,9 +97,10 @@ class RelationLossComputation(object):
             loss_refine_att = self.attribute_loss(refine_att_logits, attribute_targets, 
                                              fg_bg_sample=self.attribute_sampling, 
                                              bg_fg_ratio=self.attribute_bgfg_ratio)
-            return loss_relation, (loss_refine_obj, loss_refine_att)
+            if refine_obj_logits is not None: return loss_relation, (loss_refine_obj, loss_refine_att)
+            return loss_relation, loss_refine_att
         else:
-            return loss_relation, loss_refine_obj
+            return loss_relation, None
 
     def generate_attributes_target(self, attributes):
         """

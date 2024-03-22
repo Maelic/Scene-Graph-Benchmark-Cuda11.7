@@ -245,11 +245,6 @@ class TransformerContext(nn.Module):
         use_gt_label = self.training or not self.obj_pred
         obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0) if use_gt_label else None
 
-        print(proposals[0].fields())
-        print(proposals[0].get_field("labels"))
-        print(proposals[0].get_field("pred_scores").shape)
-        print(proposals[0].get_field("pred_labels"))
-
         # label/logits embedding will be used as input
         if not self.obj_pred:
             obj_embed = self.obj_embed1(obj_labels)

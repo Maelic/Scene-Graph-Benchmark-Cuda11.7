@@ -134,7 +134,7 @@ class YoloV8(DetectionModel):
             img_path = self.batch[0][i]
             results.append(Results(orig_img, path=img_path, names=self.model.names, boxes=pred))
     
-    def postprocess(self, preds, targets):
+    def postprocess(self, preds, image_sizes):
         """Post-processes predictions and returns a list of Results objects."""
 
         preds = ops.non_max_suppression(
@@ -147,18 +147,24 @@ class YoloV8(DetectionModel):
 
         results = []
         for i, pred in enumerate(preds):
-            out_img_size = targets[i].size
+            out_img_size = image_sizes[i]
+            # flip
+            out_img_size = (out_img_size[1], out_img_size[0])
 
             boxes = pred[:, :4]
+            # boxes = boxes.cpu()
 
             boxlist = BoxList(boxes, out_img_size, mode="xyxy")
+
             boxlist = boxlist.clip_to_image(remove_empty=False)
             scores = pred[:, 4].long()
             labels = pred[:, 5].long()
+            boxlist.add_field("pred_labels", labels.detach().clone())
+            # add 1 to all labels to account for background class
+            labels += 1
             # resize
             boxlist.add_field("pred_scores", scores)
             boxlist.add_field("labels", labels)
-            boxlist.add_field("pred_labels", labels)
 
             assert len(boxlist.get_field("pred_labels")) == len(boxlist.get_field("pred_scores"))
             # boxlist.add_field("pred_logits", pred[:, 5:])

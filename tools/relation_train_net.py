@@ -478,14 +478,14 @@ def main():
     logger.info("Using {} GPUs".format(num_gpus))
     logger.debug(args)
 
-    logger.info("Collecting environment info...")
-    logger_step(logger, "\n" + collect_env_info())
+    logger_step(logger, "Collecting environment info...")
+    logger.debug("Loaded configuration: {}".format(collect_env_info()))
 
-    logger.info("Loaded configuration file {}".format(args.config_file))
+    # logger.info("Loaded configuration file {}".format(args.config_file))
     with open(args.config_file, "r") as cf:
         config_str = "\n" + cf.read()
         logger.debug(config_str)
-    logger.info("Running with config:\n{}".format(cfg))
+    logger.debug("Running with config:\n{}".format(cfg))
 
     output_config_path = os.path.join(cfg.OUTPUT_DIR, 'config.yml')
     logger.info("Saving config into: {}".format(output_config_path))

@@ -49,7 +49,7 @@ class GeneralizedYOLO(nn.Module):
         images = to_image_list(images)
         with torch.no_grad():
             outputs, features = self.backbone(images.tensors, embed=True)
-            proposals = self.backbone.postprocess(outputs, targets)
+            proposals = self.backbone.postprocess(outputs, images.image_sizes)
         
         # if self.roi_heads.training and not self.predcls:
         #     proposals = add_gt_proposals(proposals, targets)

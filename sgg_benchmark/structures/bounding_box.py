@@ -215,7 +215,6 @@ class BoxList(object):
         return bbox.convert(self.mode)
 
     # Tensor-like methods
-
     def to(self, device):
         bbox = BoxList(self.bbox.to(device), self.size, self.mode)
         for k, v in self.extra_fields.items():
@@ -240,11 +239,10 @@ class BoxList(object):
         return self.bbox.shape[0]
 
     def clip_to_image(self, remove_empty=True):
-        TO_REMOVE = 1
-        self.bbox[:, 0].clamp_(min=0, max=self.size[0] - TO_REMOVE)
-        self.bbox[:, 1].clamp_(min=0, max=self.size[1] - TO_REMOVE)
-        self.bbox[:, 2].clamp_(min=0, max=self.size[0] - TO_REMOVE)
-        self.bbox[:, 3].clamp_(min=0, max=self.size[1] - TO_REMOVE)
+        self.bbox[:, 0].clamp_(min=0, max=self.size[0])
+        self.bbox[:, 1].clamp_(min=0, max=self.size[1])
+        self.bbox[:, 2].clamp_(min=0, max=self.size[0])
+        self.bbox[:, 3].clamp_(min=0, max=self.size[1])
         if remove_empty:
             box = self.bbox
             keep = (box[:, 3] > box[:, 1]) & (box[:, 2] > box[:, 0])

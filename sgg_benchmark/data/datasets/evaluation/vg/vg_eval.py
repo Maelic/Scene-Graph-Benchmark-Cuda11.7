@@ -72,8 +72,8 @@ def do_vg_evaluation(
             boxes = gt.bbox.tolist() # xyxy
             for cls, box in zip(labels, boxes):
                 anns.append({
-                    'area': (box[3] - box[1] + 1) * (box[2] - box[0] + 1),
-                    'bbox': [box[0], box[1], box[2] - box[0] + 1, box[3] - box[1] + 1], # xywh
+                    'area': (box[3] - box[1]) * (box[2] - box[0]),
+                    'bbox': [box[0], box[1], box[2] - box[0], box[3] - box[1]], # xywh
                     'category_id': cls,
                     'id': len(anns),
                     'image_id': image_id,

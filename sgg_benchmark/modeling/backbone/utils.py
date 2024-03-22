@@ -10,8 +10,6 @@ def add_gt_proposals(proposals, targets):
     """
 
     gt_boxes = [target.copy_with_fields(["labels"]) for target in targets]
-    print(gt_boxes[0].fields())
-    print(proposals[0].fields())
 
     proposals = [
         cat_boxlist((proposal, gt_box))

@@ -45,7 +45,10 @@ class PostProcessor(nn.Module):
             results (list[BoxList]): one BoxList for each image, containing
                 the extra fields labels and scores
         """
-        relation_logits, refine_logits = x
+        if not self.proposals_as_gt:
+            relation_logits, refine_logits = x
+        else:
+            relation_logits = x
         
         if self.attribute_on:
             if isinstance(refine_logits[0], (list, tuple)):
@@ -58,32 +61,36 @@ class PostProcessor(nn.Module):
             finetune_obj_logits = refine_logits
 
         results = []
-        for i, (rel_logit, obj_logit, rel_pair_idx, box) in enumerate(zip(
-            relation_logits, finetune_obj_logits, rel_pair_idxs, boxes
-        )):
+        if not self.proposals_as_gt:
+            it_dict = zip(relation_logits, finetune_obj_logits, rel_pair_idxs, boxes)
+        else:
+            it_dict = zip(relation_logits, rel_pair_idxs, boxes)
+
+        for i, current_it in enumerate(it_dict):
             if self.attribute_on:
                 att_logit = finetune_att_logits[i]
                 att_prob = torch.sigmoid(att_logit)
-
-            obj_class_prob = F.softmax(obj_logit, -1)
-            obj_class_prob[:, 0] = 0  # set background score to 0
-            num_obj_bbox = obj_class_prob.shape[0]
-            num_obj_class = obj_class_prob.shape[1]
-
-            if self.use_gt_box:
-                obj_scores, obj_pred = obj_class_prob[:, 1:].max(dim=1)
-                obj_pred = obj_pred + 1
-
-            elif self.proposals_as_gt:
+        
+            if not self.proposals_as_gt:
+                rel_logit, rel_pair_idx, box = current_it
+                obj_class_prob = F.softmax(obj_logit, -1)
+                obj_class_prob[:, 0] = 0  # set background score to 0
+                num_obj_bbox = obj_class_prob.shape[0]
+                num_obj_class = obj_class_prob.shape[1]
+                if self.use_gt_box:
+                    obj_scores, obj_pred = obj_class_prob[:, 1:].max(dim=1)
+                    obj_pred = obj_pred + 1
+                else:
+                    # NOTE: by kaihua, apply late nms for object prediction
+                    obj_pred = obj_prediction_nms(box.get_field('boxes_per_cls'), obj_logit, self.later_nms_pred_thres)
+                    obj_score_ind = torch.arange(num_obj_bbox, device=obj_logit.device) * num_obj_class + obj_pred
+                    obj_scores = obj_class_prob.view(-1)[obj_score_ind]
+            else:
+                rel_logit, obj_logit, rel_pair_idx, box = current_it
                 obj_scores = box.get_field('pred_scores')
                 obj_pred = box.get_field('pred_labels')
                 obj_pred = obj_pred + 1
-            else:
-                # NOTE: by kaihua, apply late nms for object prediction
-                obj_pred = obj_prediction_nms(box.get_field('boxes_per_cls'), obj_logit, self.later_nms_pred_thres)
-                obj_score_ind = torch.arange(num_obj_bbox, device=obj_logit.device) * num_obj_class + obj_pred
-                obj_scores = obj_class_prob.view(-1)[obj_score_ind]
-            
+           
             assert obj_scores.shape[0] == num_obj_bbox
             obj_class = obj_pred
 

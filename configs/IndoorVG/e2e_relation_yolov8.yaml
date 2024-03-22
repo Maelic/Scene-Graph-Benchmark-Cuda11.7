@@ -52,7 +52,7 @@ MODEL:
     FEATURE_EXTRACTOR: "YOLOV8FeatureExtractor"
     PREDICTOR: "FPNPredictor"
     NUM_CLASSES: 111                # 151 for VG, 1201 for GQA
-    MLP_HEAD_DIM: 4096
+    MLP_HEAD_DIM: 2048
   ROI_ATTRIBUTE_HEAD:
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"
     PREDICTOR: "FPNPredictor"
@@ -69,9 +69,9 @@ MODEL:
     REQUIRE_BOX_OVERLAP: True              # for sgdet, during training, only train pairs with overlap
     ADD_GTBOX_TO_PROPOSAL_IN_TRAIN: False    # for sgdet only, in case some gt boxes are missing
     NUM_CLASSES: 38                 # 51 for VG, 201 for GQA (not contain "to the left of" & "to the right of")
-    BATCH_SIZE_PER_IMAGE: 1024      # sample as much as possible
+    BATCH_SIZE_PER_IMAGE: 512      # sample as much as possible
     POSITIVE_FRACTION: 0.25
-    CONTEXT_POOLING_DIM: 4096
+    CONTEXT_POOLING_DIM: 2048
     CONTEXT_HIDDEN_DIM: 512         #1024 for VCTree
     POOLING_ALL_LEVELS: True
     LABEL_SMOOTHING_LOSS: False
