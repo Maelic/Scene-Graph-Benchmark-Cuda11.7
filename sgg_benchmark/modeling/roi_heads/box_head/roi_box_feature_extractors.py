@@ -20,6 +20,7 @@ class YOLOV8FeatureExtractor(nn.Module):
             output_size=(resolution, resolution),
             sampling_ratio=sampling_ratio,
             cat_all_levels=cat_all_levels,
+            out_channels=cfg.MODEL.YOLO.OUT_CHANNELS,
         )
 
         self.pooler = pooler

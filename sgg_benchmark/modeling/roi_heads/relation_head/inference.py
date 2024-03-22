@@ -47,6 +47,7 @@ class PostProcessor(nn.Module):
         """
         if not self.proposals_as_gt:
             relation_logits, refine_logits = x
+            finetune_obj_logits = refine_logits
         else:
             relation_logits = x
         
@@ -57,8 +58,6 @@ class PostProcessor(nn.Module):
                 # just use attribute feature, do not actually predict attribute
                 self.attribute_on = False
                 finetune_obj_logits = refine_logits
-        else:
-            finetune_obj_logits = refine_logits
 
         results = []
         if not self.proposals_as_gt:
@@ -72,7 +71,7 @@ class PostProcessor(nn.Module):
                 att_prob = torch.sigmoid(att_logit)
         
             if not self.proposals_as_gt:
-                rel_logit, rel_pair_idx, box = current_it
+                rel_logit, obj_logit, rel_pair_idx, box = current_it
                 obj_class_prob = F.softmax(obj_logit, -1)
                 obj_class_prob[:, 0] = 0  # set background score to 0
                 num_obj_bbox = obj_class_prob.shape[0]
@@ -85,13 +84,13 @@ class PostProcessor(nn.Module):
                     obj_pred = obj_prediction_nms(box.get_field('boxes_per_cls'), obj_logit, self.later_nms_pred_thres)
                     obj_score_ind = torch.arange(num_obj_bbox, device=obj_logit.device) * num_obj_class + obj_pred
                     obj_scores = obj_class_prob.view(-1)[obj_score_ind]
+                assert obj_scores.shape[0] == num_obj_bbox
             else:
-                rel_logit, obj_logit, rel_pair_idx, box = current_it
+                rel_logit, rel_pair_idx, box = current_it
                 obj_scores = box.get_field('pred_scores')
                 obj_pred = box.get_field('pred_labels')
                 obj_pred = obj_pred + 1
            
-            assert obj_scores.shape[0] == num_obj_bbox
             obj_class = obj_pred
 
             if self.use_gt_box or self.proposals_as_gt:

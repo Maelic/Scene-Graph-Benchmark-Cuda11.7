@@ -135,13 +135,13 @@ class Pooler(nn.Module):
         return result
     
 class PoolerYOLO(nn.Module):
-    def __init__(self, output_size, sampling_ratio, in_channels=[], cat_all_levels=False):
+    def __init__(self, output_size, sampling_ratio, in_channels=[256,512,512], out_channels=256, cat_all_levels=False):
         super(PoolerYOLO, self).__init__()
         self.output_size = output_size
         self.sampling_ratio = sampling_ratio
         self.cat_all_levels = cat_all_levels
-        self.in_channels = in_channels if in_channels != [] else [256,512,512]
-        self.out_channels = 256
+        self.in_channels = in_channels
+        self.out_channels = out_channels
         self.num_features = 3                   # features map size for YOLOV8 is 3, with size 20x20x256, 40x40x512, 80x80x512
 
         self.reduce_channel = make_conv3x3(self.out_channels * self.num_features, self.out_channels, dilation=1, stride=1, use_relu=True)
@@ -154,7 +154,7 @@ class PoolerYOLO(nn.Module):
             # perfrom a conv 1x1 on all the feature maps one by one to reduce the channels
             for i in range(self.num_features):
                 if x[i].shape[1] != self.out_channels:
-                    x[i] = nn.Conv2d(self.in_channels[i], self.out_channels, kernel_size=1, stride=1, padding=0, device=device)(x[i])
+                    x[i] = nn.Conv2d(x[i].shape[1], self.out_channels, kernel_size=1, stride=1, padding=0, device=device)(x[i])
 
         num_levels = len(x)
         assert num_levels <= self.num_features

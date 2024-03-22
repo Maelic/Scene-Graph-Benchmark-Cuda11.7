@@ -91,7 +91,7 @@ class ROIRelationHead(torch.nn.Module):
             else:
                 output_losses = dict(loss_rel=loss_relation, loss_refine_obj=loss_refine)
         else:
-            relation_logits, add_losses = self.predictor(proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger)
+            _, relation_logits, add_losses = self.predictor(proposals, rel_pair_idxs, rel_labels, rel_binarys, roi_features, union_features, logger)
             # for test
             if not self.training:
                 result = self.post_processor(relation_logits, rel_pair_idxs, proposals)

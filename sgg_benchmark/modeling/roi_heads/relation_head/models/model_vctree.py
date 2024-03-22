@@ -79,13 +79,9 @@ class VCTreeLSTMContext(nn.Module):
         self.num_obj_classes = len(obj_classes)
 
         # mode
-        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
-            if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
-                self.mode = 'predcls'
-            else:
-                self.mode = 'sgcls'
-        else:
-            self.mode = 'sgdet'
+        self.obj_pred = True
+        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX or self.cfg.MODEL.BACKBONE.FREEZE:
+            self.obj_pred = False
 
         # word embedding
         self.embed_dim = self.cfg.MODEL.ROI_RELATION_HEAD.EMBED_DIM
@@ -188,7 +184,7 @@ class VCTreeLSTMContext(nn.Module):
             encod_rep = self.obj_ctx_rnn(tree, feat, len(proposal))
             obj_ctxs.append(encod_rep)
             # Decode in order
-            if self.mode != 'predcls':
+            if self.obj_pred:
                 if (not self.training) and self.effect_analysis and ctx_average:
                     decoder_inp = self.untreated_dcd_feat.view(1, -1).expand(encod_rep.shape[0], -1)
                 else:
@@ -226,12 +222,12 @@ class VCTreeLSTMContext(nn.Module):
     def forward(self, x, proposals, rel_pair_idxs, logger=None, all_average=False, ctx_average=False):
         num_objs = [len(b) for b in proposals]
         # labels will be used in DecoderRNN during training (for nms)
-        if self.training or self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
+        if self.training or not self.obj_pred:
             obj_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
         else:
             obj_labels = None
 
-        if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
+        if not self.obj_pred:
             obj_embed = self.obj_embed1(obj_labels.long())
             obj_logits = to_onehot(obj_labels, self.num_obj_classes)
         else:
@@ -253,7 +249,7 @@ class VCTreeLSTMContext(nn.Module):
         pair_inp = self.overlap_embed(get_overlap_info(proposals))
         bi_inp = cat((self.obj_reduce(x.detach()), self.emb_reduce(obj_embed.detach()), box_inp, pair_inp), -1)
         bi_preds, vc_scores = self.vctree_score_net(num_objs, bi_inp, obj_logits, proposals)
-        forest = generate_forest(vc_scores, proposals, self.mode)
+        forest = generate_forest(vc_scores, proposals, self.obj_pred)
         vc_forest = arbForest_to_biForest(forest)
 
         # object level contextual feature

@@ -576,5 +576,7 @@ class LSTMContext(nn.Module):
         if self.training and self.effect_analysis:
             self.untreated_obj_feat = self.moving_average(self.untreated_obj_feat, obj_pre_rep)
             self.untreated_edg_feat = self.moving_average(self.untreated_edg_feat, cat((obj_embed2, x), -1))
+        
+        obj_dists = to_onehot(obj_preds, self.num_obj_classes)
 
-        return obj_preds, edge_ctx, None
+        return obj_dists, obj_preds, edge_ctx, None

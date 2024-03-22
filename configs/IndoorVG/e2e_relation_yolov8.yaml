@@ -8,14 +8,14 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedYOLO"
   BOX_HEAD: False
   WEIGHT: ""
-  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Documents/PhD/MyModel/Scene-Graph-Benchmark-Cuda11.7/datasets/IndoorVG/yolov8l_indoorvg.pt"
+  PRETRAINED_DETECTOR_CKPT: "/home/maelic/Downloads/indoorvg_4_yolov8/weights/best.pt"
   BACKBONE:
     TYPE: "yolov8"
     NMS_THRESH: 0.1
     FREEZE: True
   YOLO:
-    SIZE: "yolov8l"
-    OUT_CHANNELS: 256
+    SIZE: "yolov8m"
+    OUT_CHANNELS: 192 # 192 for yolov8m, 256 for yolov8l
   RESNETS:
     BACKBONE_OUT_CHANNELS: 256
     STRIDE_IN_1X1: False
@@ -51,7 +51,7 @@ MODEL:
     POOLER_SAMPLING_RATIO: 2
     FEATURE_EXTRACTOR: "YOLOV8FeatureExtractor"
     PREDICTOR: "FPNPredictor"
-    NUM_CLASSES: 111                # 151 for VG, 1201 for GQA
+    NUM_CLASSES: 85              # 151 for VG, 1201 for GQA
     MLP_HEAD_DIM: 2048
   ROI_ATTRIBUTE_HEAD:
     FEATURE_EXTRACTOR: "FPN2MLPFeatureExtractor"

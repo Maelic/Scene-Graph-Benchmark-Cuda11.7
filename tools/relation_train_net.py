@@ -188,7 +188,6 @@ def train(cfg, logger, args):
     start_training_time = time.time()
     end = time.time()
 
-    print_first_grad = True
     pbar = tqdm.tqdm(total=cfg.SOLVER.VAL_PERIOD)
 
     for iteration, (images, targets, _) in enumerate(train_data_loader, start_iter):
@@ -220,6 +219,7 @@ def train(cfg, logger, args):
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = reduce_loss_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+        pbar.set_postfix(loss=losses_reduced.item())
 
         meters.update(loss=losses_reduced, **loss_dict_reduced)
         if args['use_wandb']:

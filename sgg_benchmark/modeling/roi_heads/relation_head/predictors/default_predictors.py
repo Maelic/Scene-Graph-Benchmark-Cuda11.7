@@ -467,6 +467,7 @@ class CausalAnalysisPredictor(nn.Module):
         self.separate_spatial = config.MODEL.ROI_RELATION_HEAD.CAUSAL.SEPARATE_SPATIAL
         self.use_vtranse = config.MODEL.ROI_RELATION_HEAD.CAUSAL.CONTEXT_LAYER == "vtranse"
         self.effect_type = config.MODEL.ROI_RELATION_HEAD.CAUSAL.EFFECT_TYPE
+        self.obj_pred = config.MODEL.BACKBONE.FREEZE
         
         assert in_channels is not None
         num_inputs = in_channels
@@ -543,7 +544,9 @@ class CausalAnalysisPredictor(nn.Module):
     def pair_feature_generate(self, roi_features, proposals, rel_pair_idxs, num_objs, obj_boxs, logger, ctx_average=False):
         # encode context infomation
         obj_dists, obj_preds, edge_ctx, binary_preds = self.context_layer(roi_features, proposals, rel_pair_idxs, logger, ctx_average=ctx_average)
+
         obj_dist_prob = F.softmax(obj_dists, dim=-1)
+        obj_prob_list = obj_dist_prob.split(num_objs, dim=0)
 
         # post decode
         edge_rep = self.post_emb(edge_ctx)
@@ -554,7 +557,6 @@ class CausalAnalysisPredictor(nn.Module):
         head_reps = head_rep.split(num_objs, dim=0)
         tail_reps = tail_rep.split(num_objs, dim=0)
         obj_preds = obj_preds.split(num_objs, dim=0)
-        obj_prob_list = obj_dist_prob.split(num_objs, dim=0)
         obj_dist_list = obj_dists.split(num_objs, dim=0)
         ctx_reps = []
         pair_preds = []

@@ -12,7 +12,7 @@ def generate_forest(pair_scores, proposals, mode):
 
     for pair_score, proposal in zip(pair_scores, proposals):
         num_obj = pair_score.shape[0]
-        obj_label = proposal.get_field("labels") if mode == "predcls" else proposal.get_field("predict_logits").max(-1)[1]
+        obj_label = proposal.get_field("labels") if not mode else proposal.get_field("predict_logits").max(-1)[1]
 
         assert pair_score.shape[0] == len(proposal)
         assert pair_score.shape[0] == pair_score.shape[1]
