@@ -1,38 +1,44 @@
 import os
 import sys
 import json
-import time
 import numpy as np
 import torch
 import torch.nn.functional as F
-import tqdm
-import os
-import time
-import datetime
-import numpy as np
-
-import torch
-import torch.distributed as dist
+from tqdm import tqdm
 
 from sgg_benchmark.config import cfg
-from sgg_benchmark.config.defaults_GCL import _C as cfg_GCL
 from sgg_benchmark.data import make_data_loader
-from sgg_benchmark.solver import make_lr_scheduler
-from sgg_benchmark.solver import make_optimizer
-from sgg_benchmark.engine.trainer import reduce_loss_dict
-from sgg_benchmark.engine.inference import inference
 from sgg_benchmark.modeling.detector import build_detection_model
 from sgg_benchmark.utils.checkpoint import DetectronCheckpointer
-from sgg_benchmark.utils.checkpoint import clip_grad_norm
-from sgg_benchmark.utils.collect_env import collect_env_info
-from sgg_benchmark.utils.comm import synchronize, get_rank, all_gather
 from sgg_benchmark.utils.logger import setup_logger, logger_step
 from sgg_benchmark.utils.miscellaneous import mkdir, save_config
-from sgg_benchmark.utils.metric_logger import MetricLogger
-from sgg_benchmark.utils.parser import default_argument_parser
+from sgg_benchmark.structures.boxlist_ops import boxlist_iou
 
 
-def process(config_file, checkpoint_file, output_file=None):
+def process(path, output_file=None):
+    base_path = path
+    categories_path = base_path+"/categories_gpt3_Indoorvg4.csv"
+    stats_path = base_path+"/VG-SGG-dicts.json"
+    config_file = base_path+"/config.yml"
+
+    categories = {}
+    with open(categories_path, 'r') as f:
+        for i, line in enumerate(f):
+            line = line.strip().split(',')
+            try:
+                categories[line[0]] = line[1]
+            except:
+                print(line)
+                print(i)
+                exit(0)
+    with open(stats_path, 'r') as f:
+        stats = json.load(f)
+
+    idx_to_label = stats['idx_to_label']
+    idx_to_predicate = stats['idx_to_predicate']
+
+    cfg.merge_from_file(config_file)
+    cfg.freeze()
 
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
     distributed = num_gpus > 1
@@ -42,7 +48,6 @@ def process(config_file, checkpoint_file, output_file=None):
     logger_step(logger, 'Building model...')
     model = build_detection_model(cfg) 
 
-    model = build_detection_model(cfg)
     model.to(cfg.MODEL.DEVICE)
 
     output_dir = cfg.OUTPUT_DIR
@@ -51,9 +56,6 @@ def process(config_file, checkpoint_file, output_file=None):
     last_check = checkpointer.get_checkpoint_file()
     logger.info("Loading best checkpoint from {}...".format(last_check))
     _ = checkpointer.load(last_check)
-
-    iou_types = ("bbox","relations", )
-
 
     dataset_names = cfg.DATASETS.TEST
 
@@ -72,8 +74,9 @@ def process(config_file, checkpoint_file, output_file=None):
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference", dataset_name)
             mkdir(output_folder)
             output_folders[idx] = output_folder
-    data_loader_train = make_data_loader(cfg=cfg, mode="train", is_distributed=distributed)
-
+    data_loader_train = make_data_loader(cfg=cfg, mode="test", is_distributed=distributed, dataset_to_test='train')
+    #data_loader_train = make_data_loader(cfg=cfg, mode="test", is_distributed=distributed)
+    data_loader_train = data_loader_train[0]
     model.eval()
 
     ############
@@ -82,30 +85,44 @@ def process(config_file, checkpoint_file, output_file=None):
     gt_rels_count = 0
     internal_trans_count = 0
     external_trans_count = 0
-    pbar = tqdm.tqdm(total=cfg.SOLVER.VAL_PERIOD)
+    dataset = data_loader_train.dataset
+    stats = dataset.get_statistics()
+    out_data = {}
 
     device = torch.device(cfg.MODEL.DEVICE)
 
-    for _, batch in enumerate(tqdm(data_loader_train)):
-        pbar.update(1)
+    # show the number of triplets that ahev a frequency higher than 0
+    print('triplet_freq: ', len([k for k, v in stats['triplet_freq'].items() if v > 0]))
 
+    pbar = tqdm(total=len(data_loader_train))
+    for batch in data_loader_train:
+        pbar.update(1)
         with torch.no_grad():
             images, targets, image_ids = batch
             targets = [target.to(device) for target in targets]
 
-            output = model(images.to(device), targets)
+            predictions = model(images.to(device), targets)
 
-        # get gt
-        ori_shape = targets
-        gt_labels = data['gt_labels'][0].data[0][0]
-        gt_bboxes = data['gt_bboxes'][0].data[0][0]
-        gt_masks = data['gt_masks'][0].data[0][0]
-        gt_masks = F.interpolate(gt_masks.unsqueeze(1),
-                                    size=ori_shape[:2]).squeeze(1)
-        gt_rels = data['gt_rels'][0].data[0][0]
-        
+        out_data[image_ids[0]] = []
+        img_info = dataset.get_img_info(image_ids[0])
+        image_width = img_info["width"]
+        image_height = img_info["height"]
+        # recover original size which is before transform
+        predictions = predictions[0]
+        predictions = predictions.resize((image_width, image_height)).convert('xyxy').to(device)
+
+        gt = dataset.get_groundtruth(image_ids[0], evaluation=True).to(device)
+
+        gt_labels = gt.get_field('labels') # integer
+        gt_rels = gt.get_field('relation_tuple')
+
+        # gt_rels is a tensor of shape (num_boxes, num_boxes) with 0 if no rel or the rel index otherwise
+        # we need to convert it to a list of subject object pair
+        sub_obj_pair_list = []
+        for (s,o,r) in gt_rels:
+            sub_obj_pair_list.append([s,o])
+
         # get gt_no_rels
-        sub_obj_pair_list = [[s, o] for s, o, r in gt_rels]
         gt_no_rels = []
         for s in range(len(gt_labels)):  # subject
             for o in range(len(gt_labels)):  # object
@@ -116,27 +133,18 @@ def process(config_file, checkpoint_file, output_file=None):
         gt_no_rels = np.array(gt_no_rels)
 
         # get pred
-        pd_labels = result[0].labels - 1
-        pd_bboxes = result[0].refine_bboxes
-        pd_masks = result[0].masks
-        pd_rel_scores = result[0].rel_scores
-        pd_rel_labels = result[0].rel_labels
-        pd_rel_dists = result[0].rel_dists
-        pd_rels = result[0].rels
+        pd_rels = predictions.get_field('rel_pair_idxs')
+        pd_rel_dists = predictions.get_field('pred_rel_scores').tolist()
 
+        # pd_rel_dists, pd_rel_labels = all_rel_prob.max(-1)
+        # pd_rel_dists = []
+        # for i in range(pd_rel_labels.shape[0]):
+        #     pd_rel_dists.append(predictions.get_field('pred_rel_scores')[i][1:].max(0)[1].item() + 1)
+        pd_labels = predictions.get_field('pred_labels').tolist()
         
+        # get iou between gt and pd
+        ious = boxlist_iou(gt, predictions)
 
-        # get mask iou
-        gt_masks = gt_masks.to(device='cuda:0').to(torch.float).flatten(1)
-        pd_masks = torch.asarray(pd_masks, dtype=gt_masks.dtype, device=gt_masks.device).flatten(1)
-        ious_list = []
-        for mask_i in range(gt_masks.shape[0]):
-            ious = gt_masks[mask_i:mask_i+1].mm(pd_masks.transpose(0, 1)) / ((gt_masks[mask_i:mask_i+1] + pd_masks) > 0).sum(-1)
-            ious_list.append(ious)
-        ious = torch.cat(ious_list, dim=0)
-
-        # print('\n')
-        # print(this_psg_data['relations'])
         ##################
         # internal trans #
         ##################
@@ -144,39 +152,49 @@ def process(config_file, checkpoint_file, output_file=None):
         for i in range(gt_rels.shape[0]):
             gt_s_idx = gt_rels[i][0]
             gt_o_idx = gt_rels[i][1]
-            gt_r_label = gt_rels[i][2]
+            gt_r_label = gt_rels[i][2]-1
             gt_s_label = gt_labels[gt_s_idx]
             gt_o_label = gt_labels[gt_o_idx]
             pd_r_dists_list = []
             for j in range(pd_rels.shape[0]):
                 pd_s_idx = pd_rels[j][0]
                 pd_o_idx = pd_rels[j][1]
-                pd_r_label = pd_rels[j][2]
-                pd_s_label = pd_labels[pd_s_idx]
-                pd_o_label = pd_labels[pd_o_idx]
+                pd_s_label = int(pd_labels[pd_s_idx])
+                pd_o_label = int(pd_labels[pd_o_idx])
                 pd_r_dists = pd_rel_dists[j]
                 s_iou = ious[gt_s_idx, pd_s_idx]
                 o_iou = ious[gt_o_idx, pd_o_idx]
                 if gt_s_label == pd_s_label and gt_o_label == pd_o_label and \
                     s_iou > 0.5 and o_iou > 0.5:
-                    pd_r_dists_list.append(pd_r_dists)
+                    pd_r_dists_list.append(pd_r_dists[1:])
             if len(pd_r_dists_list) > 0:
                 pd_r_dists = np.stack(pd_r_dists_list, axis=0)
-                # 此处应该加权平均
                 pd_r_dists = pd_r_dists.mean(axis=0)
+
                 if gt_r_label != np.argmax(pd_r_dists):
                     r_sort = np.argsort(pd_r_dists)[::-1]
                     gt_r_idx = np.where(r_sort == gt_r_label.item())[0].item()
+
                     confusion_r_labels = r_sort[:gt_r_idx]
-                    ori_attr = dataset.so_rel2freq[(gt_s_label.item(), gt_o_label.item(), gt_r_label.item())] / dataset.rel2freq[gt_r_label.item()]
+                    # we get then ratio of frequence of the triplet in original data over the frequence of the relation                    
+                    ori_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), gt_r_label.item()+1)] / stats['pred_freq'][gt_r_label.item()]
+                    ori_rel = idx_to_label[str(gt_s_label.item())] + ' ' + idx_to_predicate[str(gt_r_label.item()+1)] + ' ' + idx_to_label[str(gt_o_label.item())]
+
+                    counter_cat = []
                     for c_r_label in confusion_r_labels:
                         if c_r_label != 0:
-                            new_attr = dataset.so_rel2freq[(gt_s_label.item(), gt_o_label.item(), c_r_label)] / dataset.rel2freq[c_r_label]
-                            if new_attr < ori_attr:
-                                this_psg_data['relations'].append([gt_s_idx.item(), gt_o_idx.item(), int(c_r_label - 1)])
+                            if stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label+1)] == 0:
+                                continue
+                            new_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label+1)] / stats['pred_freq'][c_r_label]
+
+                            new_cat = categories[idx_to_label[str(gt_s_label.item())] + ' ' + idx_to_predicate[str(c_r_label+1)] + ' ' + idx_to_label[str(gt_o_label.item())]]
+
+                            if new_attr < ori_attr and new_cat not in counter_cat:
+                                counter_cat.append(new_cat)
+                                full_rel = idx_to_label[str(gt_s_label.item())] + ' ' + idx_to_predicate[str(c_r_label+1)] + ' ' + idx_to_label[str(gt_o_label.item())]
+                                out_data[image_ids[0]].append([gt_s_idx.item(), gt_o_idx.item(), int(c_r_label+1)])
                                 internal_trans_count += 1
-        # print(this_psg_data['relations'])
-        # print(internal_trans_count)
+                                # print('Transfered from %s to %s' % (ori_rel, full_rel))
 
         ##################
         # external trans #
@@ -191,7 +209,6 @@ def process(config_file, checkpoint_file, output_file=None):
             for j in range(pd_rels.shape[0]):
                 pd_s_idx = pd_rels[j][0]
                 pd_o_idx = pd_rels[j][1]
-                pd_r_label = pd_rels[j][2]
                 pd_s_label = pd_labels[pd_s_idx]
                 pd_o_label = pd_labels[pd_o_idx]
                 pd_r_dists = pd_rel_dists[j]
@@ -199,7 +216,9 @@ def process(config_file, checkpoint_file, output_file=None):
                 o_iou = ious[gt_o_idx, pd_o_idx]
                 if gt_s_label == pd_s_label and gt_o_label == pd_o_label and \
                     s_iou > 0.5 and o_iou > 0.5:
-                    pd_r_dists_list.append(pd_r_dists)
+                    # get iou between gt_s_idx and gt_o_idx
+                    if ious[gt_s_idx, pd_o_idx] > 0.1:
+                        pd_r_dists_list.append(pd_r_dists)
             if len(pd_r_dists_list) > 0:
                 pd_r_dists = np.stack(pd_r_dists_list, axis=0)
                 # TODO: use weighted average
@@ -208,29 +227,35 @@ def process(config_file, checkpoint_file, output_file=None):
                     r_sort = np.argsort(pd_r_dists)[::-1]
                     gt_r_idx = np.where(r_sort == gt_r_label.item())[0].item()
                     confusion_r_labels = r_sort[:gt_r_idx]
-                    for c_r_label in confusion_r_labels:
-                        if c_r_label != 0:
-                            new_attr = dataset.so_rel2freq[(gt_s_label.item(), gt_o_label.item(), c_r_label)]
-                            if new_attr > 0 and c_r_label > 6:
-                                this_psg_data['relations'].append([gt_s_idx.item(), gt_o_idx.item(), int(c_r_label - 1)])
-                                external_trans_count += 1
-        # print(this_psg_data['relations'])
-        # print(external_trans_count)
+                    # re-ranking by attraction
+                    attr_sort = [stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), r_label)] / stats['pred_freq'][r_label-1] for r_label in confusion_r_labels]
+                    confusion_r_labels = [x for _, x in sorted(zip(attr_sort, confusion_r_labels), key=lambda pair: pair[0], reverse=True)]
 
-        psg_data_list.append(this_psg_data)
+                    # counter_cat = []
+                    for i, c_r_label in enumerate(confusion_r_labels):
+                        if c_r_label != 0:
+                            new_attr = stats['triplet_freq'][(gt_s_label.item(), gt_o_label.item(), c_r_label)]
+                            if new_attr > 0:
+                                # new_cat = categories[idx_to_label[str(gt_s_label.item())] + ' ' + idx_to_predicate[str(c_r_label)] + ' ' + idx_to_label[str(gt_o_label.item())]]
+                                # if new_cat not in counter_cat:
+                                #     counter_cat.append(new_cat)
+                                out_data[image_ids[0]].append([gt_s_idx.item(), gt_o_idx.item(), int(c_r_label)])
+                                external_trans_count += 1
+                                full_rel = idx_to_label[str(gt_s_label.item())] + ' ' + idx_to_predicate[str(c_r_label)] + ' ' + idx_to_label[str(gt_o_label.item())]
+                                # print('Adding new rel %s ' % (full_rel))
+                                break
+
+        pbar.set_description('int: %d, ext: %d' % (internal_trans_count, external_trans_count))
 
     print('gt_rels_count: ', gt_rels_count)
     print('internal_trans_count: ', internal_trans_count)
     print('external_trans_count: ', external_trans_count)
     if output_file is not None:
-        psg_data['data'] = psg_data_list
         fo = open(output_file, 'w')
-        json.dump(psg_data, fo)
+        json.dump(out_data, fo)
 
 if __name__ == '__main__':
-    # Modify self.data in test mode in openpsg/datasets/psg.py to all data, not just test.
     config_file = sys.argv[1]
-    checkpoint_file = sys.argv[2]
-    output_file = sys.argv[3]
-    process(config_file, checkpoint_file, output_file)
+    output_file = sys.argv[2]
+    process(config_file, output_file)
     

@@ -88,7 +88,7 @@ class SGInformativeRecall(SceneGraphEvaluation):
         result_str += '\n'
         return result_str
     
-    def similarity_match(self, gt_triplets, pred_triplets, cosine_thres=0.8):
+    def similarity_match(self, gt_triplets, pred_triplets, cosine_thres=0.9):
         """
         Perform cosine similarity between gt_triplets list of strings and pred_triplets list of strings
         For each pred_triplet, find the gt_triplet with the highest cosine similarity score

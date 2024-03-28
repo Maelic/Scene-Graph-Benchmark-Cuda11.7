@@ -557,7 +557,7 @@ class PairwiseFeatureExtractor(nn.Module):
         self.cfg = config
         statistics = get_dataset_statistics(config)
         obj_classes, rel_classes = statistics['obj_classes'], statistics['rel_classes']
-        self.cfg.MODEL.ROI_RELATION_HEAD.REL_PROP = statistics['pred_prop']
+        self.cfg.MODEL.ROI_RELATION_HEAD.REL_PROP = statistics['pred_freq']
         self.num_obj_classes = len(obj_classes)
         self.num_rel_classes = len(rel_classes)
         self.obj_classes = obj_classes

@@ -126,7 +126,7 @@ class VGDataset(torch.utils.data.Dataset):
 
 
     def get_statistics(self):
-        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop = get_VG_statistics(img_dir=self.img_dir, roidb_file=self.roidb_file, dict_file=self.dict_file,
+        fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq = get_VG_statistics(img_dir=self.img_dir, roidb_file=self.roidb_file, dict_file=self.dict_file,
                                                 image_file=self.image_file, zeroshot_file=self.zeroshot_file, must_overlap=True)
         eps = 1e-3
         bg_matrix += 1
@@ -140,11 +140,32 @@ class VGDataset(torch.utils.data.Dataset):
             'rel_classes': self.ind_to_predicates,
             'predicate_new_order': predicate_new_order,
             'predicate_new_order_count': predicate_new_order_count,
-            'pred_prop': pred_prop,
+            'pred_freq': pred_prop,
+            'triplet_freq': triplet_freq,
             #'att_classes': self.ind_to_attributes,
         }
 
         return result
+    
+    def compute_triplet_freq(self, data):
+        freq_counter = {}
+        for i, img in enumerate(data['img_to_first_rel']):
+            if img == -1:
+                continue
+            for j, rel in enumerate(data['relationships'][img:data['img_to_last_rel'][i]]):
+                subj = data['labels'][rel[0]][0]
+                obj = data['labels'][rel[1]][0]
+                pred = data['predicates'][j][0]
+                if (subj, pred, obj) not in freq_counter:
+                    freq_counter[(subj, pred, obj)] = 1
+                else:
+                    freq_counter[(subj, pred, obj)] += 1
+        total = sum(freq_counter.values())
+        for key in freq_counter:
+            freq_counter[key] = freq_counter[key] / total
+        # sort
+        freq_counter = dict(sorted(freq_counter.items(), key=lambda item: item[1], reverse=True))
+        return freq_counter
 
     def get_custom_imgs(self, path):
         self.custom_files = []
@@ -211,8 +232,8 @@ class VGDataset(torch.utils.data.Dataset):
         if evaluation:
             target = target.clip_to_image(remove_empty=False)
             target.add_field("relation_tuple", torch.LongTensor(relation)) # for evaluation
-            # if self.informative_graphs is not None:
-            target.add_field("informative_rels", self.informative_graphs[str(img_info['image_id'])])
+            if self.informative_graphs is not None:
+                target.add_field("informative_rels", self.informative_graphs[str(img_info['image_id'])])
             return target
         else:
             target = target.clip_to_image(remove_empty=True)
@@ -243,8 +264,7 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
         for (o1, o2), gtr in zip(o1o2, gt_relations[:,2]):
             fg_matrix[o1, o2, gtr] += 1
         # For the background, get all of the things that overlap.
-        o1o2_total = gt_classes[np.array(
-            box_filter(gt_boxes, must_overlap=must_overlap), dtype=int)]
+        o1o2_total = gt_classes[np.array(box_filter(gt_boxes, must_overlap=must_overlap), dtype=int)]
         for (o1, o2) in o1o2_total:
             bg_matrix[o1, o2] += 1
     
@@ -259,14 +279,32 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, zeroshot_file,
     pred_prop = [v / total_pred for k, v in stats_pred.items()] # this will replace cfg.MODEL.REL_PROP
     # pop first item
     pred_prop.pop(0)
+    assert len(pred_prop) == num_rel_classes - 1
 
     # add background value
-    stats_pred[0] = 3024465
+    stats_pred[0] = len(bg_matrix.flatten())
     stats_pred = dict(sorted(stats_pred.items(), key=lambda x: x[1], reverse=True))
     predicate_new_order = list(stats_pred.keys())
     predicate_new_order_count = list(stats_pred.values())
 
-    return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop
+    triplet_freq = {}
+
+    # Compute the total count of all triplets
+    total_count = fg_matrix.sum()
+    # Loop over each element in the fg_matrix
+    for i in range(fg_matrix.shape[0]):
+        for j in range(fg_matrix.shape[1]):
+            for k in range(fg_matrix.shape[2]):
+                # The triplet is (i, j, k)
+                triplet = (i, j, k)
+                # The frequency is the value in the fg_matrix divided by the total count
+                freq = fg_matrix[i, j, k] / total_count
+                # Add the triplet and its frequency to the dictionary
+                triplet_freq[triplet] = freq
+
+    # Now triplet_freq is a dictionary where the keys are the triplets and the values are the frequencies
+
+    return fg_matrix, bg_matrix, predicate_new_order, predicate_new_order_count, pred_prop, triplet_freq
     
 
 def box_filter(boxes, must_overlap=False):

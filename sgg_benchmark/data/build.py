@@ -53,7 +53,7 @@ def get_dataset_statistics(cfg):
         dataset = factory(**args)
         statistics.append(dataset.get_statistics())
     # dict with statistics[0]['rel_classes'] as keys and statistics[0]['pred_prop'] as values
-    pred_dict = dict(zip(statistics[0]['rel_classes'][1:], statistics[0]['pred_prop']))
+    pred_dict = dict(zip(statistics[0]['rel_classes'][1:], statistics[0]['pred_freq']))
     logger.info('Predicate proportion: ' + str(pred_dict))
 
     assert len(statistics) == 1
@@ -64,7 +64,8 @@ def get_dataset_statistics(cfg):
         'rel_classes': statistics[0]['rel_classes'],
         'predicate_new_order': statistics[0]['predicate_new_order'], # for GCL
         'predicate_new_order_count': statistics[0]['predicate_new_order_count'],
-        'pred_prop': statistics[0]['pred_prop'],
+        'pred_freq': statistics[0]['pred_freq'],
+        'triplet_freq': statistics[0]['triplet_freq'],
     }
     logger.info('Save data statistics to: ' + str(save_file))
     logger.info('-'*100)
@@ -212,7 +213,7 @@ def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0, data
     elif dataset_to_test == 'val':
         dataset_list = cfg.DATASETS.VAL
     else:
-        dataset_list = cfg.DATASETS.TEST
+        dataset_list = cfg.DATASETS.TRAIN
 
     # If bbox aug is enabled in testing, simply set transforms to None and we will apply transforms later
     transforms = None if not is_train and cfg.TEST.BBOX_AUG.ENABLED else build_transforms(cfg, is_train)
