@@ -97,8 +97,12 @@ class RelationLossComputation(object):
             loss_refine_att = self.attribute_loss(refine_att_logits, attribute_targets, 
                                              fg_bg_sample=self.attribute_sampling, 
                                              bg_fg_ratio=self.attribute_bgfg_ratio)
-            if refine_obj_logits is not None: return loss_relation, (loss_refine_obj, loss_refine_att)
-            return loss_relation, loss_refine_att
+            if refine_obj_logits is not None: 
+                return loss_relation, (loss_refine_obj, loss_refine_att)
+            else:
+                return loss_relation, loss_refine_att
+        elif refine_obj_logits is not None: 
+            return loss_relation, loss_refine_obj
         else:
             return loss_relation, None
 
