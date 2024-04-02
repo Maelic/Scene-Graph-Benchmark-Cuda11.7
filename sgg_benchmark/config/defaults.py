@@ -490,6 +490,7 @@ _C.MODEL.FBNET.RPN_BN_TYPE = ""
 # ---------------------------------------------------------------------------- #
 _C.SOLVER = CN()
 _C.SOLVER.MAX_ITER = 40000
+_C.SOLVER.MAX_EPOCH = 100
 
 _C.SOLVER.BASE_LR = 0.002
 _C.SOLVER.BIAS_LR_FACTOR = 2

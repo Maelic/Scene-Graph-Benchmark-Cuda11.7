@@ -197,10 +197,10 @@ def train(cfg, logger, args):
         logger.info("Validate before training")
         run_val(cfg, model, val_data_loaders, args['distributed'], logger, device=device)
 
-    logger.info("Start training")
-    start_training_time = time.time()
+    max_epoch = cfg.SOLVER.MAX_EPOCH
 
-    max_epoch = 10
+    logger.info("Start training for {} epochs".format(max_epoch))
+    start_training_time = time.time()
 
     for epoch in range(0, max_epoch):
 
