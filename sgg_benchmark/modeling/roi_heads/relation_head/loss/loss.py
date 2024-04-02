@@ -140,8 +140,6 @@ class RelationLossComputation(object):
             attri_loss = attri_loss * self.num_attri_cat / 20.0
             return attri_loss
 
-
-
 class FocalLoss(nn.Module):
     def __init__(self, gamma=0, alpha=None, size_average=True):
         super(FocalLoss, self).__init__()
@@ -163,22 +161,65 @@ class FocalLoss(nn.Module):
         if self.size_average: return loss.mean()
         else: return loss.sum()
 
-class InformativeLoss(nn.Module):
-    def __init__(self, gamma=0, alpha=None, size_average=True):
-        self.gamma = gamma
+class FocalLossFGBGNormalization(nn.Module):
+    def __init__(self, alpha=1.0, gamma=2.0, logits=True, fgbgnorm=True):
+        super(FocalLossFGBGNormalization, self).__init__()
         self.alpha = alpha
-        self.size_average = size_average
+        self.gamma = gamma
+        self.focal_loss = FocalLoss(alpha, gamma, logits, reduce=False)
 
-    def forward(self, input, target):
-        target = target.view(-1)
 
-        logpt = F.log_softmax(input)
-        logpt = logpt.index_select(-1, target).diag()
-        logpt = logpt.view(-1)
-        pt = logpt.exp()
 
-        logpt = logpt * self.alpha * (target > 0).float() + logpt * (1 - self.alpha) * (target <= 0).float()
+    def forward(self, inputs, targets, reduce=True):
+        loss = self.focal_loss(inputs, targets)
+        
+        loss = loss.sum(-1)
+        loss /= (len(torch.nonzero(targets)) + 1)
 
-        loss = -1 * (1-pt)**self.gamma * logpt
-        if self.size_average: return loss.mean()
-        else: return loss.sum()
+        return loss.mean(-1)
+    
+class InformativeLoss(nn.Module):
+    """
+    Computes the loss for informative relation.
+    Also supports FPN
+    """
+
+    def __init__(
+        self,
+        use_label_smoothing,
+    ):
+        """
+        Arguments:
+            bbox_proposal_matcher (Matcher)
+            rel_fg_bg_sampler (RelationPositiveNegativeSampler)
+        """
+        self.use_label_smoothing = use_label_smoothing
+
+        if self.use_label_smoothing:
+            self.criterion_loss = Label_Smoothing_Regression(e=0.01)
+        else:
+            self.criterion_loss = nn.CrossEntropyLoss()
+
+
+    def __call__(self, proposals, targets, relation_logits, refine_logits=None):
+        """
+        Computes the loss for relation triplet.
+        This requires that the subsample method has been called beforehand.
+
+        Arguments:
+            relation_logits (list[Tensor])
+            refine_obj_logits (list[Tensor])
+
+        Returns:
+            predicate_loss (Tensor)
+            finetune_obj_loss (Tensor)
+        """
+
+        relation_logits = cat(relation_logits, dim=0)
+
+        rel_labels = cat(rel_labels, dim=0)
+
+        loss_relation = self.criterion_loss(relation_logits, rel_labels.long())
+
+  
+        return loss_relation, None

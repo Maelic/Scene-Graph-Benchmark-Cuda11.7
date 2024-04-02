@@ -72,9 +72,6 @@ def train(cfg, local_rank, distributed, logger):
         mode='val',
         is_distributed=distributed,
     )
-    print(val_data_loaders)
-
-    checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD
 
     if cfg.SOLVER.PRE_VAL:
         logger.info("Validate before training")

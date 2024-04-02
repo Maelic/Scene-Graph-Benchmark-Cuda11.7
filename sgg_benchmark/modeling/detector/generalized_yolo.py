@@ -71,5 +71,4 @@ class GeneralizedYOLO(nn.Module):
             losses = {}
             losses.update(detector_losses)
             return losses
-
         return result

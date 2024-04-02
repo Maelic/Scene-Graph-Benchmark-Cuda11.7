@@ -164,7 +164,7 @@ def make_batch_data_sampler(
     return batch_sampler
 
 
-def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0, dataset_to_test=None):
+def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0, dataset_to_test=None, num_iters=None):
     assert mode in {'train', 'val', 'test'}
     # because yacs doesn't allow None anymore
     if dataset_to_test == "":
@@ -186,7 +186,6 @@ def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0, data
             images_per_batch, num_gpus)
         images_per_gpu = images_per_batch // num_gpus
         shuffle = True
-        num_iters = cfg.SOLVER.MAX_ITER
     else:
         images_per_batch = cfg.TEST.IMS_PER_BATCH
         assert (

@@ -317,7 +317,6 @@ def run_val(cfg, model, val_data_loaders, distributed, logger, device=None):
     if distributed:
         gathered_result = all_gather(torch.tensor(dataset_result).cpu())
         gathered_result = [t.view(-1) for t in gathered_result]
-        print(gathered_result)
         # gathered_result = torch.cat(gathered_result, dim=-1).view(-1)
         # valid_result = gathered_result[gathered_result>=0]
         # val_result = float(valid_result.mean())

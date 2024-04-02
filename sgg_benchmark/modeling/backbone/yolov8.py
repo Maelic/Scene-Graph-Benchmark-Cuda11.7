@@ -136,7 +136,6 @@ class YoloV8(DetectionModel):
     
     def postprocess(self, preds, image_sizes):
         """Post-processes predictions and returns a list of Results objects."""
-
         preds = ops.non_max_suppression(
             preds,
             nc=self.nc,
@@ -156,8 +155,8 @@ class YoloV8(DetectionModel):
 
             boxlist = BoxList(boxes, out_img_size, mode="xyxy")
 
-            boxlist = boxlist.clip_to_image(remove_empty=False)
-            scores = pred[:, 4].long()
+            #boxlist = boxlist.clip_to_image(remove_empty=False)
+            scores = pred[:, 4]
             labels = pred[:, 5].long()
             boxlist.add_field("pred_labels", labels.detach().clone())
             # add 1 to all labels to account for background class

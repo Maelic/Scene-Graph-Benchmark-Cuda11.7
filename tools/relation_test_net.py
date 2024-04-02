@@ -60,6 +60,7 @@ def main():
 
     model = build_detection_model(cfg)
     model.to(cfg.MODEL.DEVICE)
+    model.backbone.eval()
 
     enable_inplace_relu(model)
 
@@ -68,7 +69,9 @@ def main():
 
     checkpointer = DetectronCheckpointer(cfg, model, save_dir=output_dir)
     last_check = checkpointer.get_checkpoint_file()
-    logger.info("Loading best checkpoint from {}...".format(last_check))
+    if last_check == "":
+        last_check = cfg.MODEL.WEIGHT
+    logger.info("Loading last checkpoint from {}...".format(last_check))
     _ = checkpointer.load(last_check)
 
     iou_types = ("bbox",)
