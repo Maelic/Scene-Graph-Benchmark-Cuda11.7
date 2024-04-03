@@ -39,3 +39,9 @@ wandb/
 # MacOS
 .DS_Store
 
+# egg-info
+*.egg-info
+
+# others
+analysis/
+*SLURM.sh
