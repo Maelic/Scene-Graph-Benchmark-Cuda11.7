@@ -33,7 +33,7 @@ class VGDataset(torch.utils.data.Dataset):
             roidb_file:  HDF5 containing the GT boxes, classes, and relationships
             dict_file: JSON Contains mapping of classes/relationships to words
             image_file: HDF5 containing image filenames
-            informative_file: JSON containing the GT informative SGs extracted from captions
+            informative_file: JSON containing the GT informative SGs extracted from captions, only for evaluation
             filter_empty_rels: True if we filter out images without relationships between
                              boxes. One might want to set this to false if training a detector.
             filter_duplicate_rels: Whenever we see a duplicate relationship we'll sample instead

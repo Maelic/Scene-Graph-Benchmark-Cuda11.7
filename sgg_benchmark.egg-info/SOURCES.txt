@@ -196,6 +196,7 @@ tests/test_data_samplers.py
 tests/test_detectors.py
 tests/test_fbnet.py
 tests/test_feature_extractors.py
+tests/test_gather.py
 tests/test_metric_logger.py
 tests/test_nms.py
 tests/test_predictors.py

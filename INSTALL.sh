@@ -12,21 +12,6 @@ rm -r VG_100K_2
 rm images.zip
 rm images2.zip
 
-# Download VG annotations
-# VG150 connected
-mkdir -p VG150
-cd VG150
-wget -O VG150_connected.zip https://mycore.core-cloud.net/index.php/s/9Afn2UO8wVt4wov/download
-unzip VG150_connected.zip
-rm VG150_connected.zip
-
-cd $BASE_DIR/checkpoints/
-mkdir -p connected
-cd connected/
-wget -O pretrained_faster_rcnn.zip https://mycore.core-cloud.net/index.php/s/ZaS3b09L3NNZkIJ/download
-unzip pretrained_faster_rcnn.zip
-rm pretrained_faster_rcnn.zip
-
 cd $BASE_DIR
 
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
@@ -36,10 +21,22 @@ conda init
 source ~/.bashrc
 
 conda update --force conda
-conda create --name sgg python=3.8
-conda activate sgg
-conda install ipython scipy h5py ninja cython matplotlib tqdm pandas
-conda remove yacs
+# create and activate env
+conda create --name scene_graph_benchmark python=3.11
+conda activate scene_graph_benchmark
 
+# this installs the right conda dependencies for the fresh python
+conda install ipython scipy h5py ninja cython matplotlib tqdm pandas
+
+# follow PyTorch installation in https://pytorch.org/get-started/locally/
+# we give the instructions for CUDA 12.1
+conda install pytorch==2.2.1 torchvision==0.17.1 pytorch-cuda=12.1 -c pytorch -c nvidia
+
+# some pip dependencies
 pip install -r requirements.txt
+
+# the following will install the lib with
+# symbolic links, so that you can modify
+# the files if you want and won't need to
+# re-build it
 python setup.py build develop

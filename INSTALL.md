@@ -1,10 +1,10 @@
 ## Installation
 
-Most of the requirements of this projects are exactly the same as [maskrcnn-benchmark](https://github.com/facebookresearch/maskrcnn-benchmark). If you have any problem of your environment, you should check their [issues page](https://github.com/facebookresearch/maskrcnn-benchmark/issues) first. Hope you will find the answer.
+Most of the requirements of this projects are similar to the ones from [https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch](https://github.com/KaihuaTang/Scene-Graph-Benchmark.pytorch). If you have any issues, please first look at the issue page there.
 
 ### Requirements:
-- Python <= 3.8
-- PyTorch >= 1.2 (Mine 1.13.1 (CUDA 11.7))
+- Python >= 3.8 (mine 3.11)
+- PyTorch >= 1.2 (Mine 2.2.1 (CUDA 12.1))
 - torchvision >= 0.4
 - cocoapi
 - yacs
@@ -20,17 +20,15 @@ Most of the requirements of this projects are exactly the same as [maskrcnn-benc
 conda update --force conda
 
 # create and activate env
-conda create --name scene_graph_benchmark python=3.8
+conda create --name scene_graph_benchmark python=3.11
 conda activate scene_graph_benchmark
 
 # this installs the right conda dependencies for the fresh python
 conda install ipython scipy h5py ninja cython matplotlib tqdm pandas
 
 # follow PyTorch installation in https://pytorch.org/get-started/locally/
-# we give the instructions for CUDA 11.7
-conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
-
-export INSTALL_DIR=$PWD
+# we give the instructions for CUDA 12.1
+conda install pytorch==2.2.1 torchvision==0.17.1 pytorch-cuda=12.1 -c pytorch -c nvidia
 
 # some pip dependencies
 pip install -r requirements.txt
@@ -40,5 +38,3 @@ pip install -r requirements.txt
 # the files if you want and won't need to
 # re-build it
 python setup.py build develop
-
-unset INSTALL_DIR

@@ -11,3 +11,4 @@ loguru
 wandb
 pycocotools
 h5py
+networkx
