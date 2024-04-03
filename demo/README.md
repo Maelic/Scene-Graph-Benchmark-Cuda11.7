@@ -1,46 +1,18 @@
 ## Webcam and Jupyter notebook demo
 
-This folder contains a simple webcam demo that illustrates how you can use `maskrcnn_benchmark` for inference.
+This folder contains a simple webcam demo where you can perform real-time SGG. First, make sure that you have downloaded or trained a model in SGDet mode, currently only sgdet is supported for demo. 
+To run the demo you'll need to:
 
+1. Install the codebase, refer to [INSTALL.md](../INSTALL.md)
+2. Train a SGDet model and save the results files in the ```./checkpoints/``` folder
+3. Get the path to the config file used for training, it should be under the directory OUTPUT_PATH where you launch the training, e.g. ```./checkpoints/sgdet-causal-motifs```
+4. Get the path of the dict file with class names, it should be under ```./datasets/vg/``` and be named something like ```VG-SGG-dicts.json```
 
-### With your preferred environment
+Also, make sure that your config.yml file is pointing to the correct path of the weights, either with the MODEL.WEIGHT variable or OUTPUT_PATH that will point to an existing last_checkpoint file.
 
-You can start it by running it from this folder, using one of the following commands:
-```bash
-# by default, it runs on the GPU
-# for best results, use min-image-size 800
-python webcam.py --min-image-size 800
-# can also run it on the CPU
-python webcam.py --min-image-size 300 MODEL.DEVICE cpu
-# or change the model that you want to use
-python webcam.py --config-file ../configs/caffe2/e2e_mask_rcnn_R_101_FPN_1x_caffe2.yaml --min-image-size 300 MODEL.DEVICE cpu
-# in order to see the probability heatmaps, pass --show-mask-heatmaps
-python webcam.py --min-image-size 300 --show-mask-heatmaps MODEL.DEVICE cpu
+You can run the demo as follows:
+
 ```
-
-### With Docker
-
-Build the image with the tag `maskrcnn-benchmark` (check [INSTALL.md](../INSTALL.md) for instructions)
-
-Adjust permissions of the X server host (be careful with this step, refer to 
-[here](http://wiki.ros.org/docker/Tutorials/GUI) for alternatives)
-
-```bash
-xhost +
-``` 
-
-Then run a container with the demo:
- 
+conda activate scene_graph_benchmark
+python webcam_demo.py --classes PATH_TO_CLASSES_DICT_FILE.json --config YPUR_CONFIG_FILE_HERE.yml
 ```
-docker run --rm -it \
-    -e DISPLAY=${DISPLAY} \
-    --privileged \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    --device=/dev/video0:/dev/video0 \
-    --ipc=host maskrcnn-benchmark \
-    python demo/webcam.py --min-image-size 300 \
-    --config-file configs/caffe2/e2e_mask_rcnn_R_50_FPN_1x_caffe2.yaml
-```
-
-**DISCLAIMER:** *This was tested for an Ubuntu 16.04 machine, 
-the volume mapping may vary depending on your platform*
